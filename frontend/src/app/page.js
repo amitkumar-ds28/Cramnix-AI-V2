@@ -135,7 +135,7 @@ export default function Home() {
     const finalPrompt = `[Language: ${selectedLanguage}] ${fileContext} ${textToRun || 'Analyze the uploaded file and answer questions.'}`;
 
     try {
-      const res = await fetch('http://127.0.0.1:8000/api/generate', {
+      const res = await fetch('https://cramnix-ai-v2.onrender.com/api/generate', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ 

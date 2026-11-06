@@ -1,3 +1,5 @@
 ﻿node_modules/
 .env
 frontend/.git_backup/
+.env.local
+frontend/.env.local

@@ -58,6 +58,10 @@ export default function Home() {
   const [autoRead, setAutoRead] = useState(false);
   const [isSpeaking, setIsSpeaking] = useState(false);
   const [shareMsg, setShareMsg] = useState('');
+
+  // NEW: State for Right Panel Toggle
+  const [isRightPanelOpen, setIsRightPanelOpen] = useState(true);
+
   const chatEndRef = useRef(null);
   const fileInputRef = useRef(null);
   const cameraInputRef = useRef(null);
@@ -74,7 +78,6 @@ export default function Home() {
   const red = '#EF4444';
   const showBottomBar = ['dashboard', 'student', 'library', 'chatpdf'].includes(activeNav);
 
-  // ===== REAL FOCUS DATA - STARTS FROM 0, GROWS WITH YOUR STUDY =====
   const [weekData, setWeekData] = useState([
     { day: 'Mon', val: 0, mins: '0m' },
     { day: 'Tue', val: 0, mins: '0m' },
@@ -406,8 +409,10 @@ export default function Home() {
   );
 
   return (
-    <div style={{ display: 'flex', minHeight: '100vh', background: `radial-gradient(800px 400px at 15% 0%, #2E1A5E 0%, transparent 60%), radial-gradient(700px 400px at 90% 20%, #3B1A6B 0%, transparent 60%), ${bg}`, color: textColor, fontFamily: 'Inter, sans-serif', padding: '14px', gap: '14px', boxSizing: 'border-box' }}>
-      <aside style={{ width: '260px', flexShrink: 0, background: 'linear-gradient(180deg, rgba(30,21,56,0.95), rgba(10,6,24,0.95))', borderRadius: '22px', border: `1px solid ${cardBorder}`, padding: '20px 14px', display: 'flex', flexDirection: 'column', justifyContent: 'space-between' }}>
+    <div style={{ display: 'flex', minHeight: '100vh', background: `radial-gradient(800px 400px at 15% 0%, #2E1A5E 0%, transparent 60%), radial-gradient(700px 400px at 90% 20%, #3B1A6B 0%, transparent 60%), ${bg}`, color: textColor, fontFamily: 'Inter, sans-serif', padding: '14px', gap: '14px', boxSizing: 'border-box', position: 'relative', overflowX: 'hidden' }}>
+      
+      {/* Left Sidebar */}
+      <aside style={{ width: '260px', flexShrink: 0, background: 'linear-gradient(180deg, rgba(30,21,56,0.95), rgba(10,6,24,0.95))', borderRadius: '22px', border: `1px solid ${cardBorder}`, padding: '20px 14px', display: 'flex', flexDirection: 'column', justifyContent: 'space-between', zIndex: 30 }}>
         <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: '10px', padding: '4px 8px 16px 8px' }}>
             <img src="/logo.png" alt="Cramnix Logo" onError={(e) => { e.target.style.display = 'none'; }} style={{ width: '38px', height: '38px', borderRadius: '12px', objectFit: 'cover', background: 'white', padding: '2px' }} />
@@ -437,7 +442,8 @@ export default function Home() {
         </div>
       </aside>
 
-      <main style={{ flex: 1, minWidth: 0, background: 'rgba(10,6,24,0.55)', borderRadius: '22px', border: `1px solid ${cardBorder}`, padding: '20px', display: 'flex', flexDirection: 'column', backdropFilter: 'blur(10px)' }}>
+      {/* Main Content Area */}
+      <main style={{ flex: 1, minWidth: 0, background: 'rgba(10,6,24,0.55)', borderRadius: '22px', border: `1px solid ${cardBorder}`, padding: '20px', display: 'flex', flexDirection: 'column', backdropFilter: 'blur(10px)', transition: 'all 0.3s ease' }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px', flexWrap: 'wrap', gap: '10px' }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
             <h1 style={{ margin: 0, fontSize: '22px', fontWeight: '900', color: heading }}>{activeNav === 'chatpdf' ? 'Chat with PDF' : activeNav === 'dashboard' ? 'Dashboard' : activeNav === 'student' ? 'Student Zone' : activeNav === 'professional' ? 'Professional Zone' : activeNav === 'focus' ? 'Focus Zone' : activeNav === 'library' ? 'Library' : activeNav.charAt(0).toUpperCase() + activeNav.slice(1)}</h1>
@@ -458,7 +464,6 @@ export default function Home() {
         {sharedFile && activeNav === 'chatpdf' && <div style={{ ...glass, display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '10px 14px', marginBottom: '12px' }}><div style={{ fontSize: '13px' }}>📄 <b>{sharedFile.name}</b> <span style={{ color: '#86EFAC', marginLeft: '8px' }}>✔ Processed</span></div><button onClick={() => setSharedFile(null)} style={{ background: red, color: '#fff', border: 'none', padding: '6px 10px', borderRadius: '8px', cursor: 'pointer', fontSize: '12px' }}>❌ Remove</button></div>}
 
         <div style={{ flex: 1, overflowY: 'auto', display: 'flex', flexDirection: 'column', minHeight: '300px' }}>
-          {/* DASHBOARD - CLEAN - NO GRAPHS */}
           {activeNav === 'dashboard' && (
             <div style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
               <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4,1fr)', gap: '12px' }}>
@@ -575,7 +580,6 @@ export default function Home() {
             </div>
           )}
 
-          {/* ===== FOCUS ZONE - ALL ENGLISH - REAL DATA ===== */}
           {activeNav === 'focus' && (
             <div style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
               <div><h2 style={{ margin: '4px 0', color: heading }}>⚡ Focus Zone</h2><p style={{ color: subText, margin: 0, fontSize: '13px' }}>Your focus, your progress - everything is shown here.</p></div>
@@ -614,28 +618,78 @@ export default function Home() {
           )}
         </div>
 
+        {/* BOTTOM INPUT BAR */}
         {showBottomBar && (
-        <div style={{ marginTop: '14px', display: 'flex', flexDirection: 'column', gap: '10px' }}>
-          <div style={{ display: 'flex', gap: '8px', alignItems: 'center', flexWrap: 'wrap' }}>
-            <button onClick={() => fileInputRef.current.click()} style={{ background: cardBg, border: `1px solid ${cardBorder}`, color: heading, padding: '8px 14px', borderRadius: '999px', fontSize: '12px', cursor: 'pointer', fontWeight: '700' }}>📂 Upload File</button>
-            <input ref={fileInputRef} type="file" accept=".pdf,.txt,.png,.jpg,.jpeg" hidden onChange={handleFileUpload} />
-            <button onClick={() => cameraInputRef.current.click()} style={{ background: cardBg, border: `1px solid ${cardBorder}`, color: heading, padding: '8px 14px', borderRadius: '999px', fontSize: '12px', cursor: 'pointer', fontWeight: '700' }}>📸 Camera</button>
-            <input ref={cameraInputRef} type="file" accept="image/*" capture="environment" hidden onChange={handleCameraCapture} />
-            <div style={{ display: 'flex', gap: '8px' }}><label style={{ fontSize: '12px' }}><input type="radio" checked={inputMethod === 'file'} onChange={() => setInputMethod('file')} /> File</label><label style={{ fontSize: '12px' }}><input type="radio" checked={inputMethod === 'camera'} onChange={() => setInputMethod('camera')} /> Camera</label></div>
-            {activeNav === 'chatpdf' && sharedFile && <span style={{ fontSize: '12px', color: '#86EFAC' }}>✅ {sharedFile.name} <button onClick={() => setSharedFile(null)} style={{ background: 'none', border: 'none', color: '#FCA5A5', cursor: 'pointer' }}>❌</button></span>}
-            {isSpeaking && <span style={{ fontSize: '12px', color: '#86EFAC' }}>🔊 Speaking... <button onClick={stopSpeaking} style={{ background: 'none', border: 'none', color: '#FCA5A5', cursor: 'pointer' }}>Stop</button></span>}
+          <div style={{ marginTop: '14px', display: 'flex', flexDirection: 'column', gap: '10px' }}>
+            <div style={{ display: 'flex', gap: '8px', alignItems: 'center', flexWrap: 'wrap' }}>
+              <button onClick={() => fileInputRef.current.click()} style={{ background: cardBg, border: `1px solid ${cardBorder}`, color: heading, padding: '8px 14px', borderRadius: '999px', fontSize: '12px', cursor: 'pointer', fontWeight: '700' }}>📂 Upload File</button>
+              <input ref={fileInputRef} type="file" accept=".pdf,.txt,.png,.jpg,.jpeg" hidden onChange={handleFileUpload} />
+              <button onClick={() => cameraInputRef.current.click()} style={{ background: cardBg, border: `1px solid ${cardBorder}`, color: heading, padding: '8px 14px', borderRadius: '999px', fontSize: '12px', cursor: 'pointer', fontWeight: '700' }}>📸 Camera</button>
+              <input ref={cameraInputRef} type="file" accept="image/*" capture="environment" hidden onChange={handleCameraCapture} />
+              <div style={{ display: 'flex', gap: '8px' }}><label style={{ fontSize: '12px' }}><input type="radio" checked={inputMethod === 'file'} onChange={() => setInputMethod('file')} /> File</label><label style={{ fontSize: '12px' }}><input type="radio" checked={inputMethod === 'camera'} onChange={() => setInputMethod('camera')} /> Camera</label></div>
+              {activeNav === 'chatpdf' && sharedFile && <span style={{ fontSize: '12px', color: '#86EFAC' }}>✅ {sharedFile.name} <button onClick={() => setSharedFile(null)} style={{ background: 'none', border: 'none', color: '#FCA5A5', cursor: 'pointer' }}>❌</button></span>}
+              {isSpeaking && <span style={{ fontSize: '12px', color: '#86EFAC' }}>🔊 Speaking... <button onClick={stopSpeaking} style={{ background: 'none', border: 'none', color: '#FCA5A5', cursor: 'pointer' }}>Stop</button></span>}
+            </div>
+            <form onSubmit={(e) => handleGenerate(e, chatPrompt, null, activeNav === 'student')} style={{ display: 'flex', gap: '8px', background: 'rgba(0,0,0,0.35)', border: `1px solid ${cardBorder}`, borderRadius: '999px', padding: '6px 6px 6px 16px', alignItems: 'center' }}>
+              <input value={chatPrompt} onChange={(e) => setChatPrompt(e.target.value)} placeholder={activeNav === 'library' ? 'Search in Library or Ask about a file...' : activeNav === 'chatpdf' ? 'Ask about your PDF...' : activeNav === 'student' ? (studentTab === 'plan' ? 'Enter topic for Study Plan... e.g. Photosynthesis' : studentTab === 'notes' ? 'Enter topic for Notes... e.g. Photosynthesis' : studentTab === 'quiz' ? 'Enter topic for Quiz... e.g. Photosynthesis' : 'Enter topic for Flashcards... e.g. Photosynthesis') : 'Ask anything...'} style={{ flex: 1, background: 'transparent', border: 'none', outline: 'none', color: heading, fontSize: '14px' }} />
+              {chatPrompt && <button type="button" onClick={() => setChatPrompt('')} style={{ background: 'none', border: 'none', color: '#FCA5A5', cursor: 'pointer', fontSize: '16px' }}>❌</button>}
+              <button type="button" onClick={() => handleVoiceInput(setChatPrompt)} style={{ background: 'none', border: 'none', fontSize: '18px', cursor: 'pointer' }}>🎤</button>
+              <button type="submit" disabled={loading} style={{ background: purple, border: 'none', color: '#fff', width: '38px', height: '38px', borderRadius: '50%', cursor: 'pointer', fontSize: '16px' }}>{loading ? '...' : '➤'}</button>
+            </form>
           </div>
-          <form onSubmit={(e) => handleGenerate(e, chatPrompt, null, activeNav === 'student')} style={{ display: 'flex', gap: '8px', background: 'rgba(0,0,0,0.35)', border: `1px solid ${cardBorder}`, borderRadius: '999px', padding: '6px 6px 6px 16px', alignItems: 'center' }}>
-            <input value={chatPrompt} onChange={(e) => setChatPrompt(e.target.value)} placeholder={activeNav === 'library' ? 'Search in Library or Ask about a file...' : activeNav === 'chatpdf' ? 'Ask about your PDF...' : activeNav === 'student' ? (studentTab === 'plan' ? 'Enter topic for Study Plan... e.g. Photosynthesis' : studentTab === 'notes' ? 'Enter topic for Notes... e.g. Photosynthesis' : studentTab === 'quiz' ? 'Enter topic for Quiz... e.g. Photosynthesis' : 'Enter topic for Flashcards... e.g. Photosynthesis') : 'Ask anything...'} style={{ flex: 1, background: 'transparent', border: 'none', outline: 'none', color: heading, fontSize: '14px' }} />
-            {chatPrompt && <button type="button" onClick={() => setChatPrompt('')} style={{ background: 'none', border: 'none', color: '#FCA5A5', cursor: 'pointer', fontSize: '16px' }}>❌</button>}
-            <button type="button" onClick={() => handleVoiceInput(setChatPrompt)} style={{ background: 'none', border: 'none', fontSize: '18px', cursor: 'pointer' }}>🎤</button>
-            <button type="submit" disabled={loading} style={{ background: purple, border: 'none', color: '#fff', width: '38px', height: '38px', borderRadius: '50%', cursor: 'pointer', fontSize: '16px' }}>{loading ? '...' : '➤'}</button>
-          </form>
-        </div>
         )}
       </main>
 
-      <aside style={{ width: '300px', flexShrink: 0, background: 'rgba(20,12,40,0.95)', borderRadius: '22px', border: `1px solid ${cardBorder}`, padding: '18px', display: 'flex', flexDirection: 'column', gap: '18px', overflowY: 'auto', maxHeight: 'calc(100vh - 28px)' }}>
+      {/* FLOATING TOGGLE ARROW FOR RIGHT PANEL */}
+      <button 
+        onClick={() => setIsRightPanelOpen(!isRightPanelOpen)}
+        style={{
+          position: 'fixed',
+          right: isRightPanelOpen ? '320px' : '0px',
+          top: '50%',
+          transform: 'translateY(-50%)',
+          zIndex: 50,
+          background: '#1E1538',
+          color: '#C4B5FD',
+          border: '1px solid rgba(255,255,255,0.15)',
+          borderRight: isRightPanelOpen ? 'none' : '1px solid rgba(255,255,255,0.15)',
+          borderTopLeftRadius: '12px',
+          borderBottomLeftRadius: '12px',
+          borderTopRightRadius: isRightPanelOpen ? '0px' : '12px',
+          borderBottomRightRadius: isRightPanelOpen ? '0px' : '12px',
+          padding: '12px 8px',
+          cursor: 'pointer',
+          boxShadow: '-4px 0px 15px rgba(0,0,0,0.5)',
+          transition: 'right 0.3s ease',
+          fontWeight: 'bold',
+          fontSize: '16px'
+        }}
+        title={isRightPanelOpen ? "Hide Right Panel" : "Show Quiz & Flashcards"}
+      >
+        {isRightPanelOpen ? '❯' : '❮'}
+      </button>
+
+      {/* COMPLETELY COLLAPSIBLE RIGHT PANEL (Quiz Engine, Flashcards, & Goal Planning) */}
+      <aside 
+        style={{
+          width: '300px',
+          flexShrink: 0,
+          background: 'rgba(20,12,40,0.95)',
+          borderRadius: '22px',
+          border: `1px solid ${cardBorder}`,
+          padding: '18px',
+          display: 'flex',
+          flexDirection: 'column',
+          gap: '18px',
+          position: 'fixed',
+          right: isRightPanelOpen ? '14px' : '-320px',
+          top: '14px',
+          bottom: '14px',
+          zIndex: 40,
+          transition: 'right 0.3s ease',
+          overflowY: 'auto'
+        }}
+      >
         <div>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}><b style={{ color: heading }}>✨ Quiz Engine</b><span style={{ fontSize: '11px', background: cardBg, padding: '3px 8px', borderRadius: '999px', color: subText }}>{quizQuestions.length > 0 ? 'Quiz Ready' : 'No Quiz'}</span></div>
           <input value={quizTopic} onChange={(e) => setQuizTopic(e.target.value)} placeholder="Enter topic... e.g. Photosynthesis" style={{ ...inputStyle, marginTop: '10px' }} />
@@ -667,6 +721,7 @@ export default function Home() {
           </div>
         </div>
       </aside>
+
     </div>
   );
 }

@@ -12,7 +12,10 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata = {
-  title: "Cramnix AI - Universal AI Workspace",
+  title: {
+    default: "Cramnix AI",
+    template: "%s - Cramnix AI",
+  },
   description: "Universal AI Workspace for Students and Professionals",
   manifest: "/manifest.json",
 };

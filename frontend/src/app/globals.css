@@ -1,8 +1,8 @@
 @import "tailwindcss";
 
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
+  --background: #0A0618;
+  --foreground: #EDE9FE;
 }
 
 @theme inline {
@@ -12,15 +12,69 @@
   --font-mono: var(--font-geist-mono);
 }
 
+/* Force Dark Mode - White hataya */
 @media (prefers-color-scheme: dark) {
   :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
+    --background: #0A0618;
+    --foreground: #EDE9FE;
   }
 }
 
-body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+@media (prefers-color-scheme: light) {
+  :root {
+    --background: #0A0618;
+    --foreground: #EDE9FE;
+  }
+}
+
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+html, body {
+  margin: 0;
+  padding: 0;
+  background: #0A0618 !important;
+  color: #EDE9FE;
+  font-family: Inter, Arial, Helvetica, sans-serif;
+  overflow-x: hidden;
+}
+
+a {
+  color: inherit;
+  text-decoration: none;
+}
+
+/* Scrollbar - Patli aur Clean */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background: #8B5CF6;
+  border-radius: 999px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: #6D28D9;
+}
+
+input, select, textarea, button {
+  font-family: inherit;
+}
+
+input:focus, select:focus, textarea:focus {
+  outline: 1px solid #8B5CF6;
+}
+
+img {
+  max-width: 100%;
+  display: block;
 }

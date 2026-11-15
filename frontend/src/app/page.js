@@ -77,7 +77,7 @@ export default function Home() {
   const purple2 = '#6D28D9';
   const green = '#22C55E';
   const red = '#EF4444';
-  const showBottomBar = ['dashboard', 'student', 'library', 'chatpdf'].includes(activeNav);
+  const showBottomBar = ['dashboard', 'student', 'library', 'chatpdf', 'professional'].includes(activeNav);
 
   const [weekData, setWeekData] = useState([
     { day: 'Mon', val: 0, mins: '0m' },
@@ -444,7 +444,7 @@ export default function Home() {
       </aside>
 
       {/* Main Content Area */}
-      <main style={{ flex: 1, minWidth: 0, background: 'rgba(10,6,24,0.55)', borderRadius: '22px', border: `1px solid ${cardBorder}`, padding: '20px', display: 'flex', flexDirection: 'column', backdropFilter: 'blur(10px)', transition: 'all 0.3s ease' }}>
+      <main style={{ flex: 1, minWidth: 0, background: 'rgba(10,6,24,0.55)', borderRadius: '22px', border: `1px solid ${cardBorder}`, padding: '20px', display: 'flex', flexDirection: 'column', backdropFilter: 'blur(10px)', transition: 'all 0.3s ease', marginRight: isRightPanelOpen ? '320px' : '0px' }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px', flexWrap: 'wrap', gap: '10px' }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
             <h1 style={{ margin: 0, fontSize: '22px', fontWeight: '900', color: heading }}>{activeNav === 'chatpdf' ? 'Chat with PDF' : activeNav === 'dashboard' ? 'Dashboard' : activeNav === 'student' ? 'Student Zone' : activeNav === 'professional' ? 'Professional Zone' : activeNav === 'focus' ? 'Focus Zone' : activeNav === 'library' ? 'Library' : activeNav.charAt(0).toUpperCase() + activeNav.slice(1)}</h1>
@@ -573,11 +573,40 @@ export default function Home() {
           {activeNav === 'quizzes' && (<div style={{ ...glass }}><h3 style={{ margin: '0 0 10px 0', color: heading }}>🧠 Quizzes - {quizTopic || 'No Topic'}</h3><input value={quizTopic} onChange={(e) => setQuizTopic(e.target.value)} placeholder="Enter topic... e.g. Photosynthesis" style={inputStyle} /><button onClick={() => generateRealQuiz(quizTopic)} style={{ ...primaryBtn, marginTop: '10px' }}>{quizLoading ? 'Generating...' : '⚡ Generate 5 MCQs'}</button>{quizQuestions.length === 0 ? <p style={{ fontSize: '13px', color: subText, marginTop: '12px' }}>No quiz yet.</p> : <div style={{ marginTop: '14px', fontSize: '13px', whiteSpace: 'pre-wrap' }}>{quizQuestions[0].q}</div>}</div>)}
           {activeNav === 'flashcards' && (<div style={{ ...glass }}><h3 style={{ margin: '0 0 10px 0', color: heading }}>📄 Flashcards - {flashTopic || 'No Topic'}</h3><input value={flashTopic} onChange={(e) => setFlashTopic(e.target.value)} placeholder="Enter topic... e.g. Photosynthesis" style={inputStyle} /><button onClick={() => generateRealFlashcards(flashTopic)} style={{ ...primaryBtn, marginTop: '10px' }}>{flashLoading ? 'Generating...' : '⚡ Generate Flashcards'}</button><p style={{ fontSize: '13px', color: subText, marginTop: '12px' }}>{flashcards.length === 0 ? 'No flashcards yet.' : flashcards[0].q}</p></div>)}
           {activeNav === 'goals' && (<div style={{ ...glass }}><h3 style={{ margin: '0 0 10px 0', color: heading }}>🎯 Goals</h3><div style={{ display: 'flex', gap: '8px' }}><input value={newGoal} onChange={(e) => setNewGoal(e.target.value)} placeholder="Add a new goal..." style={{ ...inputStyle, flex: 1 }} /><button onClick={() => { if (newGoal.trim()) { setGoals([...goals, { text: newGoal, done: false }]); setNewGoal(''); } }} style={primaryBtn}>Add</button></div>{goals.map((g, i) => <div key={i} onClick={() => setGoals(goals.map((x, xi) => xi === i ? { ...x, done: !x.done } : x))} style={{ display: 'flex', gap: '8px', alignItems: 'center', marginTop: '10px', fontSize: '13px', cursor: 'pointer', textDecoration: g.done ? 'line-through' : 'none' }}><span>{g.done ? '✅' : '⬜'}</span> {g.text}</div>)}</div>)}
+          
+          {/* Professional Zone Section with Meeting Notes & Email Generator */}
           {activeNav === 'professional' && (
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
-              <div style={{ ...glass }}><h3 style={{ margin: '0 0 10px 0', color: heading }}>📝 Meeting Notes</h3><textarea rows="4" value={meetingPrompt} onChange={(e) => setMeetingPrompt(e.target.value)} placeholder="Paste meeting notes..." style={inputStyle} /><button onClick={(e) => handleGenerate(e, `Extract summary and action items: ${meetingPrompt}`, null, false)} style={{ ...primaryBtn, marginTop: '10px' }}>⚡ Extract Summary</button></div>
-              <div style={{ ...glass }}><h3 style={{ margin: '0 0 10px 0', color: heading }}>✉️ Email Generator</h3><input value={emailPrompt} onChange={(e) => setEmailPrompt(e.target.value)} placeholder="What is this email about?" style={inputStyle} /><button onClick={(e) => handleGenerate(e, `Draft professional email: ${emailPrompt}`, null, false)} style={{ ...primaryBtn, marginTop: '10px' }}>✨ Draft Email</button></div>
-              {professionalMessages.map((m, i) => (<div key={i}>{m.type === 'user' ? <div style={{ background: purple, color: '#fff', padding: '12px 16px', borderRadius: '18px 18px 4px 18px', maxWidth: '80%', marginLeft: 'auto', fontSize: '14px' }}>{m.text}</div> : <div style={{ background: 'rgba(139,92,246,0.12)', border: `1px solid ${cardBorder}`, padding: '16px', borderRadius: '16px', fontSize: '14px', whiteSpace: 'pre-wrap' }}>{m.text}</div>}</div>))}
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
+              <div style={{ display: 'flex', gap: '8px', marginBottom: '4px' }}>
+                <button onClick={() => setProfessionalTab('meeting')} style={{ background: professionalTab === 'meeting' ? purple : cardBg, border: `1px solid ${cardBorder}`, color: '#fff', padding: '8px 16px', borderRadius: '999px', cursor: 'pointer', fontSize: '13px', fontWeight: professionalTab === 'meeting' ? '800' : '500' }}>📝 Meeting Notes</button>
+                <button onClick={() => setProfessionalTab('email')} style={{ background: professionalTab === 'email' ? purple : cardBg, border: `1px solid ${cardBorder}`, color: '#fff', padding: '8px 16px', borderRadius: '999px', cursor: 'pointer', fontSize: '13px', fontWeight: professionalTab === 'email' ? '800' : '500' }}>✉️ Email Generator</button>
+              </div>
+
+              {professionalTab === 'meeting' && (
+                <div style={{ ...glass }}>
+                  <h3 style={{ margin: '0 0 6px 0', color: heading }}>📝 Meeting Notes & Action Item Extractor</h3>
+                  <p style={{ fontSize: '13px', color: subText, margin: '0 0 12px 0' }}>Paste raw meeting transcript or notes below. I will extract summary, key points, and action items in English.</p>
+                  <textarea rows="5" value={meetingPrompt} onChange={(e) => setMeetingPrompt(e.target.value)} placeholder="Paste raw meeting transcript / notes..." style={inputStyle} />
+                  <button onClick={(e) => handleGenerate(e, `Extract professional meeting summary and action items from these notes: ${meetingPrompt}`, null, false)} style={{ ...primaryBtn, width: '100%', marginTop: '12px' }}>{loading ? 'Extracting...' : '⚡ Extract Summary'}</button>
+                </div>
+              )}
+
+              {professionalTab === 'email' && (
+                <div style={{ ...glass }}>
+                  <h3 style={{ margin: '0 0 6px 0', color: heading }}>✉️ Professional Email Generator</h3>
+                  <p style={{ fontSize: '13px', color: subText, margin: '0 0 12px 0' }}>What is this email about? I will draft a clean, professional email for you.</p>
+                  <input value={emailPrompt} onChange={(e) => setEmailPrompt(e.target.value)} placeholder="e.g. Leave application, client follow-up, project update..." style={inputStyle} />
+                  <button onClick={(e) => handleGenerate(e, `Draft a professional email for: ${emailPrompt}`, null, false)} style={{ ...primaryBtn, width: '100%', marginTop: '12px' }}>{loading ? 'Drafting...' : '✨ Draft Email'}</button>
+                </div>
+              )}
+
+              {professionalMessages.length > 0 && (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '16px', padding: '10px 0' }}>
+                  {professionalMessages.map((m, i) => (
+                    <div key={i}>{m.type === 'user' ? <div style={{ background: purple, color: '#fff', padding: '12px 16px', borderRadius: '18px 18px 4px 18px', maxWidth: '80%', marginLeft: 'auto', fontSize: '14px' }}>{m.text}</div> : <div style={{ background: 'rgba(139,92,246,0.12)', border: `1px solid ${cardBorder}`, padding: '16px', borderRadius: '16px', fontSize: '14px', lineHeight: '1.7', whiteSpace: 'pre-wrap' }}><div style={{ fontWeight: '800', color: heading, marginBottom: '8px' }}>✨ Cramnix AI • Professional Assistant</div>{m.text}</div>}</div>
+                  ))}
+                </div>
+              )}
             </div>
           )}
 
@@ -627,12 +656,13 @@ export default function Home() {
               <input ref={fileInputRef} type="file" accept=".pdf,.txt,.png,.jpg,.jpeg" hidden onChange={handleFileUpload} />
               <button onClick={() => cameraInputRef.current.click()} style={{ background: cardBg, border: `1px solid ${cardBorder}`, color: heading, padding: '8px 14px', borderRadius: '999px', fontSize: '12px', cursor: 'pointer', fontWeight: '700' }}>📸 Camera</button>
               <input ref={cameraInputRef} type="file" accept="image/*" capture="environment" hidden onChange={handleCameraCapture} />
+              <button onClick={() => handleVoiceInput(setChatPrompt)} style={{ background: cardBg, border: `1px solid ${cardBorder}`, color: heading, padding: '8px 14px', borderRadius: '999px', fontSize: '12px', cursor: 'pointer', fontWeight: '700' }}>🎤 Voice</button>
               <div style={{ display: 'flex', gap: '8px' }}><label style={{ fontSize: '12px' }}><input type="radio" checked={inputMethod === 'file'} onChange={() => setInputMethod('file')} /> File</label><label style={{ fontSize: '12px' }}><input type="radio" checked={inputMethod === 'camera'} onChange={() => setInputMethod('camera')} /> Camera</label></div>
               {activeNav === 'chatpdf' && sharedFile && <span style={{ fontSize: '12px', color: '#86EFAC' }}>✅ {sharedFile.name} <button onClick={() => setSharedFile(null)} style={{ background: 'none', border: 'none', color: '#FCA5A5', cursor: 'pointer' }}>❌</button></span>}
               {isSpeaking && <span style={{ fontSize: '12px', color: '#86EFAC' }}>🔊 Speaking... <button onClick={stopSpeaking} style={{ background: 'none', border: 'none', color: '#FCA5A5', cursor: 'pointer' }}>Stop</button></span>}
             </div>
             <form onSubmit={(e) => handleGenerate(e, chatPrompt, null, activeNav === 'student')} style={{ display: 'flex', gap: '8px', background: 'rgba(0,0,0,0.35)', border: `1px solid ${cardBorder}`, borderRadius: '999px', padding: '6px 6px 6px 16px', alignItems: 'center' }}>
-              <input value={chatPrompt} onChange={(e) => setChatPrompt(e.target.value)} placeholder={activeNav === 'library' ? 'Search in Library or Ask about a file...' : activeNav === 'chatpdf' ? 'Ask about your PDF...' : activeNav === 'student' ? (studentTab === 'plan' ? 'Enter topic for Study Plan... e.g. Photosynthesis' : studentTab === 'notes' ? 'Enter topic for Notes... e.g. Photosynthesis' : studentTab === 'quiz' ? 'Enter topic for Quiz... e.g. Photosynthesis' : 'Enter topic for Flashcards... e.g. Photosynthesis') : 'Ask anything...'} style={{ flex: 1, background: 'transparent', border: 'none', outline: 'none', color: heading, fontSize: '14px' }} />
+              <input value={chatPrompt} onChange={(e) => setChatPrompt(e.target.value)} placeholder={activeNav === 'library' ? 'Search in Library or Ask about a file...' : activeNav === 'chatpdf' ? 'Ask about your PDF...' : activeNav === 'student' ? (studentTab === 'plan' ? 'Enter topic for Study Plan... e.g. Photosynthesis' : studentTab === 'notes' ? 'Enter topic for Notes... e.g. Photosynthesis' : studentTab === 'quiz' ? 'Enter topic for Quiz... e.g. Photosynthesis' : 'Enter topic for Flashcards... e.g. Photosynthesis') : activeNav === 'professional' ? (professionalTab === 'meeting' ? 'Type or paste meeting notes...' : 'Type email topic...') : 'Ask anything...'} style={{ flex: 1, background: 'transparent', border: 'none', outline: 'none', color: heading, fontSize: '14px' }} />
               {chatPrompt && <button type="button" onClick={() => setChatPrompt('')} style={{ background: 'none', border: 'none', color: '#FCA5A5', cursor: 'pointer', fontSize: '16px' }}>❌</button>}
               <button type="button" onClick={() => handleVoiceInput(setChatPrompt)} style={{ background: 'none', border: 'none', fontSize: '18px', cursor: 'pointer' }}>🎤</button>
               <button type="submit" disabled={loading} style={{ background: purple, border: 'none', color: '#fff', width: '38px', height: '38px', borderRadius: '50%', cursor: 'pointer', fontSize: '16px' }}>{loading ? '...' : '➤'}</button>

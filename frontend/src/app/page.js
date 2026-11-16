@@ -240,7 +240,7 @@ export default function Home() {
   const togglePinChat = (id, e) => { e.stopPropagation(); setChats(chats.map(c => c.id === id ? { ...c, pinned: !c.pinned } : c)); };
   const deleteChat = (id, e) => { e.stopPropagation(); const f = chats.filter(c => c.id !== id); setChats(f); if (f.length > 0) setCurrentChatId(f[0].id); else createNewChat(); };
 
-  // SMART INFINITE RETRY GENERATE FUNCTION (Waits patiently for Render free server wakeup)
+  // TRANSPARENT GENERATE FUNCTION (Shows exact error immediately instead of hiding it)
   const handleGenerate = async (e, textToRun, attachedFile = null, isStudent = false) => {
     if (e) e.preventDefault();
     const fileToUse = attachedFile || (activeNav === 'chatpdf' ? sharedFile : null);
@@ -276,63 +276,37 @@ export default function Home() {
     }
     const finalPrompt = `[Language: English] ${fileContext} ${tabPrefix}${qText || 'Analyze the uploaded file.'}`;
 
-    let success = false;
-    let data = null;
+    try {
+      const res = await fetch('https://cramnix-ai-v2.onrender.com/api/generate', { 
+        method: 'POST', 
+        headers: { 'Content-Type': 'application/json' }, 
+        body: JSON.stringify({ prompt: finalPrompt, api_key: apiSaved && apiKey.trim() ? apiKey.trim() : null })
+      });
 
-    while (!success) {
-      try {
-        const res = await fetch('https://cramnix-ai-v2.onrender.com/api/generate', { 
-          method: 'POST', 
-          headers: { 'Content-Type': 'application/json' }, 
-          body: JSON.stringify({ prompt: finalPrompt, api_key: apiSaved && apiKey.trim() ? apiKey.trim() : null })
-        });
+      const data = await res.json();
 
-        // Agar server sleep mode se uth raha hai ya high demand (502, 503, 504) hai toh 5 sec wait karke firse try karega
-        if (res.status === 502 || res.status === 503 || res.status === 504) {
-          await new Promise(r => setTimeout(r, 5000));
-          continue;
+      if (res.ok && data.response) {
+        setResponse(data.response);
+        streamTextIntoMessage(data.response, setMsgs);
+        if (!apiSaved) { 
+          const nc = requestCount + 1; 
+          setRequestCount(nc); 
+          localStorage.setItem('cramnix_count', nc.toString()); 
+          localStorage.setItem('cramnix_date', new Date().toDateString()); 
         }
-
-        data = await res.json();
-        const raw = JSON.stringify(data);
-
-        if (raw.includes('429') || raw.includes('RESOURCE_EXHAUSTED')) {
-          const friendly = '⚠️ AI is busy right now (Daily free limit reached). Please try again after some time or add your own API Key.';
-          setResponse(friendly); 
-          setMsgs(prev => [...prev, { type: 'ai', text: friendly }]); 
-          setLoading(false); 
-          return;
-        }
-
-        if (res.ok && data.response) {
-          success = true;
-        } else {
-          // Agar backend se koi real error aaya hai, toh usko screen par show kar do
-          const errMsg = `⚠️ Error: ${data.detail || data.error || raw}`;
-          setResponse(errMsg);
-          setMsgs(prev => [...prev, { type: 'ai', text: errMsg }]);
-          setLoading(false);
-          return;
-        }
-      } catch (err) {
-        // Network blip ya server boot hone par 5 sec baad silently retry karega
-        await new Promise(r => setTimeout(r, 5000));
+        const chatTitle = qText ? qText.slice(0, 18) + '...' : (fileToUse ? fileToUse.name : 'New Chat');
+        setChats(chats.map(c => c.id === currentChatId && c.title === 'New Chat' ? { ...c, title: chatTitle } : c));
+      } else {
+        const errorMsg = `❌ Backend Error (${res.status}): ${data.detail || data.error || JSON.stringify(data)}`;
+        setResponse(errorMsg);
+        setMsgs(prev => [...prev, { type: 'ai', text: errorMsg }]);
       }
-    }
-
-    setLoading(false);
-
-    if (data && data.response) {
-      setResponse(data.response);
-      streamTextIntoMessage(data.response, setMsgs);
-      if (!apiSaved) { 
-        const nc = requestCount + 1; 
-        setRequestCount(nc); 
-        localStorage.setItem('cramnix_count', nc.toString()); 
-        localStorage.setItem('cramnix_date', new Date().toDateString()); 
-      }
-      const chatTitle = qText ? qText.slice(0, 18) + '...' : (fileToUse ? fileToUse.name : 'New Chat');
-      setChats(chats.map(c => c.id === currentChatId && c.title === 'New Chat' ? { ...c, title: chatTitle } : c));
+    } catch (err) {
+      const networkErrorMsg = `❌ Connection Error: ${err.message}. (Server sleeping or offline)`;
+      setResponse(networkErrorMsg);
+      setMsgs(prev => [...prev, { type: 'ai', text: networkErrorMsg }]);
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -606,7 +580,7 @@ export default function Home() {
                   {dashboardMessages.map((m, i) => (
                     <div key={i}>{m.type === 'user' ? <div style={{ background: purple, color: '#fff', padding: '8px 12px', borderRadius: '14px 14px 4px 14px', maxWidth: '80%', marginLeft: 'auto', fontSize: '12px', lineHeight: '1.4' }}>{m.text}</div> : <div style={{ background: 'rgba(139,92,246,0.12)', border: `1px solid ${cardBorder}`, padding: '12px', borderRadius: '12px', fontSize: '12px', lineHeight: '1.5', whiteSpace: 'pre-wrap' }}><div style={{ fontWeight: '800', color: heading, marginBottom: '4px' }}>✨ Cramnix AI</div>{m.text}<div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap', marginTop: '8px' }}><button onClick={() => speakAnswer(m.text)} style={{ background: purple, color: '#fff', border: 'none', padding: '4px 8px', borderRadius: '6px', cursor: 'pointer', fontSize: '11px' }}>🔊 Read Aloud</button><button onClick={stopSpeaking} style={{ background: 'rgba(255,255,255,0.1)', color: '#fff', border: `1px solid ${cardBorder}`, padding: '4px 8px', borderRadius: '6px', cursor: 'pointer', fontSize: '11px' }}>⏹ Stop</button><button onClick={() => handleDownloadAnswer(m.text)} style={{ background: green, color: '#fff', border: 'none', padding: '4px 8px', borderRadius: '6px', cursor: 'pointer', fontSize: '11px' }}>📥 Download</button><button onClick={handleShare} style={{ background: 'rgba(255,255,255,0.1)', color: '#fff', border: `1px solid ${cardBorder}`, padding: '4px 8px', borderRadius: '6px', cursor: 'pointer', fontSize: '11px' }}>↗ Share</button></div></div>}</div>
                   ))}
-                  {loading && <div style={{ fontSize: '11px', color: subText }}>✨ Cramnix AI is thinking... (Waiting for server to respond)</div>}
+                  {loading && <div style={{ fontSize: '11px', color: subText }}>✨ Cramnix AI is thinking... (Waiting for server response)</div>}
                   <div ref={chatEndRef} />
                 </div>
               )}

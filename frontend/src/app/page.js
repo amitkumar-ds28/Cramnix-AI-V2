@@ -408,11 +408,12 @@ export default function Home() {
   return (
     <div style={{ display: 'flex', height: '100vh', width: '100vw', background: `radial-gradient(800px 400px at 15% 0%, #2E1A5E 0%, transparent 60%), radial-gradient(700px 400px at 90% 20%, #3B1A6B 0%, transparent 60%), ${bg}`, color: textColor, fontFamily: 'Inter, sans-serif', padding: '12px', gap: '12px', boxSizing: 'border-box', position: 'relative', overflow: 'hidden' }}>
       
-      {/* Exact CSS Responsive Media Queries (Mobile Fix + Exact Laptop Layout) */}
+      {/* PERFECT MOBILE & LAPTOP RESPONSIVE STYLES */}
       <style dangerouslySetInnerHTML={{__html: `
-        * { box-sizing: border-box; }
+        * { box-sizing: border-box; max-width: 100%; }
+        html, body { width: 100vw; height: 100vh; overflow: hidden; margin: 0; padding: 0; }
         @media (max-width: 900px) {
-          body, html { overflow-x: hidden; }
+          html, body { overflow: auto !important; height: auto !important; }
           .desktop-sidebar {
             position: fixed !important;
             left: ${isMobileMenuOpen ? '0px' : '-100%'} !important;
@@ -432,18 +433,21 @@ export default function Home() {
             margin-right: 0px !important;
             width: 100% !important;
             padding: 10px !important;
-            margin-top: 50px !important;
-            height: calc(100vh - 68px) !important;
-            overflow-y: auto !important;
+            margin-top: 52px !important;
+            height: auto !important;
+            min-height: calc(100vh - 65px) !important;
+            overflow: visible !important;
           }
           .right-panel-aside {
-            right: ${isRightPanelOpen ? '0px' : '-100%'} !important;
-            width: 290px !important;
-            z-index: 1000 !important;
-            height: 100vh !important;
-            top: 0 !important;
-            bottom: 0 !important;
-            border-radius: 0 !important;
+            position: relative !important;
+            right: auto !important;
+            width: 100% !important;
+            height: auto !important;
+            margin-top: 12px !important;
+            border-radius: 14px !important;
+          }
+          .desktop-toggle-arrow {
+            display: none !important;
           }
         }
         @media (min-width: 901px) {
@@ -457,10 +461,12 @@ export default function Home() {
           .main-content-area {
             margin-right: ${isRightPanelOpen ? '310px' : '0px'} !important;
             height: calc(100vh - 24px) !important;
+            transition: margin-right 0.3s ease !important;
           }
           .right-panel-aside {
             right: ${isRightPanelOpen ? '12px' : '-330px'} !important;
             height: calc(100vh - 24px) !important;
+            transition: right 0.3s ease !important;
           }
         }
       `}} />
@@ -730,7 +736,7 @@ export default function Home() {
       </main>
 
       {/* FLOATING TOGGLE ARROW FOR RIGHT PANEL */}
-      <button 
+      <button className="desktop-toggle-arrow"
         onClick={() => setIsRightPanelOpen(!isRightPanelOpen)}
         style={{
           position: 'fixed',

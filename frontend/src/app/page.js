@@ -240,7 +240,7 @@ export default function Home() {
   const togglePinChat = (id, e) => { e.stopPropagation(); setChats(chats.map(c => c.id === id ? { ...c, pinned: !c.pinned } : c)); };
   const deleteChat = (id, e) => { e.stopPropagation(); const f = chats.filter(c => c.id !== id); setChats(f); if (f.length > 0) setCurrentChatId(f[0].id); else createNewChat(); };
 
-  // INFINITE SILENT RETRY GENERATE FUNCTION (No timeouts, waits patiently for Render free server)
+  // SMART INFINITE RETRY GENERATE FUNCTION (Waits patiently for Render free server wakeup)
   const handleGenerate = async (e, textToRun, attachedFile = null, isStudent = false) => {
     if (e) e.preventDefault();
     const fileToUse = attachedFile || (activeNav === 'chatpdf' ? sharedFile : null);
@@ -279,7 +279,6 @@ export default function Home() {
     let success = false;
     let data = null;
 
-    // Infinite background retry loop: Chalta rahega jab tak server response na de de
     while (!success) {
       try {
         const res = await fetch('https://cramnix-ai-v2.onrender.com/api/generate', { 
@@ -287,6 +286,12 @@ export default function Home() {
           headers: { 'Content-Type': 'application/json' }, 
           body: JSON.stringify({ prompt: finalPrompt, api_key: apiSaved && apiKey.trim() ? apiKey.trim() : null })
         });
+
+        // Agar server sleep mode se uth raha hai ya high demand (502, 503, 504) hai toh 5 sec wait karke firse try karega
+        if (res.status === 502 || res.status === 503 || res.status === 504) {
+          await new Promise(r => setTimeout(r, 5000));
+          continue;
+        }
 
         data = await res.json();
         const raw = JSON.stringify(data);
@@ -302,11 +307,15 @@ export default function Home() {
         if (res.ok && data.response) {
           success = true;
         } else {
-          // Server abhi bhi sleep mode mein hai, 5 second baad dobara silently try karega
-          await new Promise(r => setTimeout(r, 5000));
+          // Agar backend se koi real error aaya hai, toh usko screen par show kar do
+          const errMsg = `⚠️ Error: ${data.detail || data.error || raw}`;
+          setResponse(errMsg);
+          setMsgs(prev => [...prev, { type: 'ai', text: errMsg }]);
+          setLoading(false);
+          return;
         }
       } catch (err) {
-        // Network blip ya server wakeup ke dauran error aaya, 5 second baad firse try karega
+        // Network blip ya server boot hone par 5 sec baad silently retry karega
         await new Promise(r => setTimeout(r, 5000));
       }
     }

@@ -59,7 +59,8 @@ export default function Home() {
   const [isSpeaking, setIsSpeaking] = useState(false);
   const [shareMsg, setShareMsg] = useState('');
 
-  const [isRightPanelOpen, setIsRightPanelOpen] = useState(true);
+  // Right Panel & Mobile Menu Toggle States
+  const [isRightPanelOpen, setIsRightPanelOpen] = useState(false);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
 
   const chatEndRef = useRef(null);
@@ -408,12 +409,9 @@ export default function Home() {
   return (
     <div style={{ display: 'flex', height: '100vh', width: '100vw', background: `radial-gradient(800px 400px at 15% 0%, #2E1A5E 0%, transparent 60%), radial-gradient(700px 400px at 90% 20%, #3B1A6B 0%, transparent 60%), ${bg}`, color: textColor, fontFamily: 'Inter, sans-serif', padding: '12px', gap: '12px', boxSizing: 'border-box', position: 'relative', overflow: 'hidden' }}>
       
-      {/* 100% RESPONSIVE CLEAN STYLES FOR BOTH MOBILE & LAPTOP */}
+      {/* Responsive Media Query CSS Helper */}
       <style dangerouslySetInnerHTML={{__html: `
-        * { box-sizing: border-box; max-width: 100%; }
-        html, body { width: 100vw; height: 100vh; overflow: hidden; margin: 0; padding: 0; }
         @media (max-width: 900px) {
-          html, body { overflow-y: auto !important; height: auto !important; }
           .desktop-sidebar {
             position: fixed !important;
             left: ${isMobileMenuOpen ? '0px' : '-100%'} !important;
@@ -432,24 +430,18 @@ export default function Home() {
             margin-left: 0px !important;
             margin-right: 0px !important;
             width: 100% !important;
-            padding: 10px !important;
+            padding: 12px !important;
             margin-top: 52px !important;
-            height: auto !important;
-            min-height: calc(100vh - 65px) !important;
-            overflow: visible !important;
+            height: calc(100vh - 72px) !important;
           }
           .right-panel-aside {
-            position: relative !important;
-            right: auto !important;
-            width: 100% !important;
-            height: auto !important;
-            margin-top: 12px !important;
-            border-radius: 14px !important;
-            display: flex !important;
-            box-shadow: none !important;
-          }
-          .desktop-toggle-arrow {
-            display: none !important;
+            right: ${isRightPanelOpen ? '0px' : '-100%'} !important;
+            width: 290px !important;
+            z-index: 1000 !important;
+            height: 100vh !important;
+            top: 0 !important;
+            bottom: 0 !important;
+            border-radius: 0 !important;
           }
         }
         @media (min-width: 901px) {
@@ -463,24 +455,21 @@ export default function Home() {
           .main-content-area {
             margin-right: ${isRightPanelOpen ? '310px' : '0px'} !important;
             height: calc(100vh - 24px) !important;
-            transition: margin-right 0.3s ease !important;
           }
           .right-panel-aside {
             right: ${isRightPanelOpen ? '12px' : '-330px'} !important;
             height: calc(100vh - 24px) !important;
-            transition: right 0.3s ease !important;
-            display: flex !important;
           }
         }
       `}} />
 
-      {/* Mobile Top Header Bar */}
+      {/* Mobile Header Bar */}
       <div className="mobile-menu-btn" style={{ position: 'fixed', top: '8px', left: '8px', right: '8px', background: 'rgba(30,21,56,0.95)', padding: '10px 14px', borderRadius: '14px', border: `1px solid ${cardBorder}`, display: 'none', justifyContent: 'space-between', alignItems: 'center', zIndex: 900, backdropFilter: 'blur(10px)', boxSizing: 'border-box' }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
           <button onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)} style={{ background: purple, color: '#fff', border: 'none', padding: '6px 12px', borderRadius: '8px', cursor: 'pointer', fontWeight: 'bold', fontSize: '12px' }}>☰ Menu</button>
           <span style={{ fontWeight: '900', color: heading, fontSize: '14px' }}>Cramnix AI</span>
         </div>
-        <span style={{ fontSize: '11px', color: '#86EFAC', fontWeight: '700' }}>🟢 Online</span>
+        <button onClick={() => setIsRightPanelOpen(!isRightPanelOpen)} style={{ background: cardBg, color: heading, border: `1px solid ${cardBorder}`, padding: '6px 12px', borderRadius: '8px', fontSize: '11px' }}>✨ Quiz/Tools</button>
       </div>
 
       {/* Left Sidebar */}
@@ -518,7 +507,7 @@ export default function Home() {
       </aside>
 
       {/* Main Content Area */}
-      <main className="main-content-area" style={{ flex: 1, minWidth: 0, background: 'rgba(10,6,24,0.55)', borderRadius: '18px', border: `1px solid ${cardBorder}`, padding: '16px 20px', display: 'flex', flexDirection: 'column', backdropFilter: 'blur(10px)', boxSizing: 'border-box', height: '100%', overflow: 'hidden' }}>
+      <main className="main-content-area" style={{ flex: 1, minWidth: 0, background: 'rgba(10,6,24,0.55)', borderRadius: '18px', border: `1px solid ${cardBorder}`, padding: '16px 20px', display: 'flex', flexDirection: 'column', backdropFilter: 'blur(10px)', transition: 'margin-right 0.3s ease', boxSizing: 'border-box', height: '100%', overflow: 'hidden' }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '10px', flexWrap: 'wrap', gap: '8px', flexShrink: 0 }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
             <h1 style={{ margin: 0, fontSize: '19px', fontWeight: '900', color: heading }}>{activeNav === 'chatpdf' ? 'Chat with PDF' : activeNav === 'dashboard' ? 'Dashboard' : activeNav === 'student' ? 'Student Zone' : activeNav === 'professional' ? 'Professional Zone' : activeNav === 'focus' ? 'Focus Zone' : activeNav === 'library' ? 'Library' : activeNav.charAt(0).toUpperCase() + activeNav.slice(1)}</h1>
@@ -738,8 +727,8 @@ export default function Home() {
         )}
       </main>
 
-      {/* FLOATING TOGGLE ARROW FOR RIGHT PANEL (Desktop Only) */}
-      <button className="desktop-toggle-arrow"
+      {/* FLOATING TOGGLE ARROW FOR RIGHT PANEL */}
+      <button 
         onClick={() => setIsRightPanelOpen(!isRightPanelOpen)}
         style={{
           position: 'fixed',
@@ -767,7 +756,7 @@ export default function Home() {
         {isRightPanelOpen ? '❯' : '❮'}
       </button>
 
-      {/* RIGHT PANEL (Quiz Engine, Flashcards, & Goal Planning - Flowing naturally on mobile) */}
+      {/* COMPLETELY COLLAPSIBLE RIGHT PANEL (Quiz Engine, Flashcards, & Goal Planning) */}
       <aside className="right-panel-aside"
         style={{
           width: '290px',

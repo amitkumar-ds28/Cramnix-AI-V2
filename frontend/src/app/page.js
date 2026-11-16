@@ -179,26 +179,6 @@ export default function Home() {
   const stopSpeaking = () => { if (window.speechSynthesis) window.speechSynthesis.cancel(); setIsSpeaking(false); };
   useEffect(() => { if (autoRead && response) speakAnswer(response); }, [response]);
 
-  // Typewriter streaming effect helper
-  const streamTextIntoMessage = (fullText, setMsgs) => {
-    let currentStr = '';
-    setMsgs(prev => [...prev, { type: 'ai', text: '' }]);
-    let i = 0;
-    const timer = setInterval(() => {
-      if (i < fullText.length) {
-        currentStr += fullText.charAt(i);
-        setMsgs(prev => {
-          const updated = [...prev];
-          updated[updated.length - 1] = { type: 'ai', text: currentStr };
-          return updated;
-        });
-        i++;
-      } else {
-        clearInterval(timer);
-      }
-    }, 15);
-  };
-
   const generateRealQuiz = async (topicInput) => {
     const topic = (topicInput || quizTopic || chatPrompt || '').trim();
     if (!topic) { alert('Please enter a topic first.'); return; }
@@ -240,32 +220,21 @@ export default function Home() {
   const togglePinChat = (id, e) => { e.stopPropagation(); setChats(chats.map(c => c.id === id ? { ...c, pinned: !c.pinned } : c)); };
   const deleteChat = (id, e) => { e.stopPropagation(); const f = chats.filter(c => c.id !== id); setChats(f); if (f.length > 0) setCurrentChatId(f[0].id); else createNewChat(); };
 
-  // TRANSPARENT GENERATE FUNCTION (Shows exact error immediately instead of hiding it)
   const handleGenerate = async (e, textToRun, attachedFile = null, isStudent = false) => {
     if (e) e.preventDefault();
     const fileToUse = attachedFile || (activeNav === 'chatpdf' ? sharedFile : null);
     const qText = (textToRun || chatPrompt || '').trim();
     if (!qText && !fileToUse) return;
-    
     let setMsgs = setDashboardMessages;
     if (activeNav === 'student' || isStudent) setMsgs = setStudentMessages;
     else if (activeNav === 'chatpdf') setMsgs = setPdfMessages;
     else if (activeNav === 'professional') setMsgs = setProfessionalMessages;
     else setMsgs = setDashboardMessages;
-
-    if (!apiSaved && requestCount >= 4) { 
-      const msg = 'Free limit reached (0/4). You will get 4 more tomorrow at 12 AM. Or add your API Key for unlimited use.'; 
-      setResponse(msg); 
-      setMsgs(prev => [...prev, { type: 'user', text: qText }, { type: 'ai', text: msg }]); 
-      return; 
-    }
-
-    setLoading(true); 
-    setResponse('');
+    if (!apiSaved && requestCount >= 4) { const msg = 'Free limit reached (0/4). You will get 4 more tomorrow at 12 AM. Or add your API Key for unlimited use.'; setResponse(msg); setMsgs(prev => [...prev, { type: 'user', text: qText }, { type: 'ai', text: msg }]); return; }
+    setLoading(true); setResponse('');
     if (qText) setMsgs(prev => [...prev, { type: 'user', text: qText }]);
     else if (fileToUse) setMsgs(prev => [...prev, { type: 'user', text: `📄 ${fileToUse.name} - Please explain this file` }]);
     setChatPrompt('');
-
     const fileContext = fileToUse ? `[Attached File: ${fileToUse.name}]` : '';
     let tabPrefix = '';
     if (isStudent || activeNav === 'student') {
@@ -275,46 +244,52 @@ export default function Home() {
       if (studentTab === 'flashcards') tabPrefix = 'Create flashcards in English for: ';
     }
     const finalPrompt = `[Language: English] ${fileContext} ${tabPrefix}${qText || 'Analyze the uploaded file.'}`;
-
     try {
-      const res = await fetch('https://cramnix-ai-v2.onrender.com/api/generate', { 
-        method: 'POST', 
-        headers: { 'Content-Type': 'application/json' }, 
-        body: JSON.stringify({ prompt: finalPrompt, api_key: apiSaved && apiKey.trim() ? apiKey.trim() : null })
-      });
-
+      const res = await fetch('https://cramnix-ai-v2.onrender.com/api/generate', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ prompt: finalPrompt, api_key: apiSaved && apiKey.trim() ? apiKey.trim() : null }) });
       const data = await res.json();
-
-      if (res.ok && data.response) {
+      const raw = JSON.stringify(data);
+      if (raw.includes('429') || raw.includes('RESOURCE_EXHAUSTED') || raw.includes('Quota exceeded')) {
+        const friendly = '⚠️ AI is busy right now (Daily free limit reached).\n\nPlease try again after 15-20 minutes.\n\nTip: Add your own Gemini API Key in Settings for unlimited use.';
+        setResponse(friendly); setMsgs(prev => [...prev, { type: 'ai', text: friendly }]); setLoading(false); return;
+      }
+      if (res.ok) {
         setResponse(data.response);
-        streamTextIntoMessage(data.response, setMsgs);
-        if (!apiSaved) { 
-          const nc = requestCount + 1; 
-          setRequestCount(nc); 
-          localStorage.setItem('cramnix_count', nc.toString()); 
-          localStorage.setItem('cramnix_date', new Date().toDateString()); 
-        }
+        setMsgs(prev => [...prev, { type: 'ai', text: data.response }]);
+        if (!apiSaved) { const nc = requestCount + 1; setRequestCount(nc); localStorage.setItem('cramnix_count', nc.toString()); localStorage.setItem('cramnix_date', new Date().toDateString()); }
         const chatTitle = qText ? qText.slice(0, 18) + '...' : (fileToUse ? fileToUse.name : 'New Chat');
         setChats(chats.map(c => c.id === currentChatId && c.title === 'New Chat' ? { ...c, title: chatTitle } : c));
-      } else {
-        const errorMsg = `❌ Backend Error (${res.status}): ${data.detail || data.error || JSON.stringify(data)}`;
-        setResponse(errorMsg);
-        setMsgs(prev => [...prev, { type: 'ai', text: errorMsg }]);
-      }
-    } catch (err) {
-      const networkErrorMsg = `❌ Connection Error: ${err.message}. (Server sleeping or offline)`;
-      setResponse(networkErrorMsg);
-      setMsgs(prev => [...prev, { type: 'ai', text: networkErrorMsg }]);
-    } finally {
-      setLoading(false);
-    }
+      } else { const friendly = '⚠️ Something went wrong. Please try again in a few minutes.'; setResponse(friendly); setMsgs(prev => [...prev, { type: 'ai', text: friendly }]); }
+    } catch (err) { const msg = 'Connection Error. Please check your internet and try again.'; setResponse(msg); setMsgs(prev => [...prev, { type: 'ai', text: msg }]); }
+    finally { setLoading(false); }
   };
 
   const handleGenerateStudyPlan = async (e) => {
     if (e) e.preventDefault();
     if (!studyTopic.trim()) { alert('Please enter your topic first.'); return; }
     const fullPrompt = `Create a complete study plan in ENGLISH ONLY for topic: ${studyTopic}. Duration: ${studyDays}. Level: ${studyLevel}. Daily Time: ${studyHours}. Make the plan like this: 1. TODAY'S PLAN - Hour by hour timetable. 2. HOW TO BREAK HARD TOPIC - Easy, Medium, Hard. 3. DAY-WISE PLAN for ${studyDays}. 4. YEAR PLAN. 5. REVISION + QUIZ + FLASHCARDS. 6. MOTIVATION TIP. Keep it simple, clear, and in English only.`;
-    handleGenerate(null, fullPrompt, null, true);
+    setLoading(true);
+    setStudentMessages(prev => [...prev, { type: 'user', text: `📝 Study Plan for ${studyTopic} - ${studyDays} - ${studyLevel} - ${studyHours}` }]);
+    try {
+      const res = await fetch('https://cramnix-ai-v2.onrender.com/api/generate', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ prompt: fullPrompt, api_key: apiSaved && apiKey.trim() ? apiKey.trim() : null }) });
+      const data = await res.json();
+      const raw = JSON.stringify(data);
+      if (raw.includes('429') || raw.includes('RESOURCE_EXHAUSTED')) {
+        const friendly = '⚠️ AI is busy right now (Daily free limit reached).\n\nPlease try again after 15-20 minutes.';
+        setResponse(friendly); setStudentMessages(prev => [...prev, { type: 'ai', text: friendly }]); setLoading(false); return;
+      }
+      if (res.ok) {
+        setResponse(data.response);
+        setStudentMessages(prev => [...prev, { type: 'ai', text: data.response }]);
+        if (!apiSaved) { const nc = requestCount + 1; setRequestCount(nc); localStorage.setItem('cramnix_count', nc.toString()); localStorage.setItem('cramnix_date', new Date().toDateString()); }
+      } else {
+        const friendly = '⚠️ Something went wrong. Please try again in a few minutes.';
+        setResponse(friendly); setStudentMessages(prev => [...prev, { type: 'ai', text: friendly }]);
+      }
+    } catch (err) {
+      const msg = 'Connection Error. Please check your internet and try again.';
+      setResponse(msg); setStudentMessages(prev => [...prev, { type: 'ai', text: msg }]);
+    }
+    setLoading(false);
   };
 
   const handleVoiceInput = (setterFunc) => {
@@ -580,7 +555,7 @@ export default function Home() {
                   {dashboardMessages.map((m, i) => (
                     <div key={i}>{m.type === 'user' ? <div style={{ background: purple, color: '#fff', padding: '8px 12px', borderRadius: '14px 14px 4px 14px', maxWidth: '80%', marginLeft: 'auto', fontSize: '12px', lineHeight: '1.4' }}>{m.text}</div> : <div style={{ background: 'rgba(139,92,246,0.12)', border: `1px solid ${cardBorder}`, padding: '12px', borderRadius: '12px', fontSize: '12px', lineHeight: '1.5', whiteSpace: 'pre-wrap' }}><div style={{ fontWeight: '800', color: heading, marginBottom: '4px' }}>✨ Cramnix AI</div>{m.text}<div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap', marginTop: '8px' }}><button onClick={() => speakAnswer(m.text)} style={{ background: purple, color: '#fff', border: 'none', padding: '4px 8px', borderRadius: '6px', cursor: 'pointer', fontSize: '11px' }}>🔊 Read Aloud</button><button onClick={stopSpeaking} style={{ background: 'rgba(255,255,255,0.1)', color: '#fff', border: `1px solid ${cardBorder}`, padding: '4px 8px', borderRadius: '6px', cursor: 'pointer', fontSize: '11px' }}>⏹ Stop</button><button onClick={() => handleDownloadAnswer(m.text)} style={{ background: green, color: '#fff', border: 'none', padding: '4px 8px', borderRadius: '6px', cursor: 'pointer', fontSize: '11px' }}>📥 Download</button><button onClick={handleShare} style={{ background: 'rgba(255,255,255,0.1)', color: '#fff', border: `1px solid ${cardBorder}`, padding: '4px 8px', borderRadius: '6px', cursor: 'pointer', fontSize: '11px' }}>↗ Share</button></div></div>}</div>
                   ))}
-                  {loading && <div style={{ fontSize: '11px', color: subText }}>✨ Cramnix AI is thinking... (Waiting for server response)</div>}
+                  {loading && <div style={{ fontSize: '11px', color: subText }}>✨ Cramnix AI is thinking...</div>}
                   <div ref={chatEndRef} />
                 </div>
               )}

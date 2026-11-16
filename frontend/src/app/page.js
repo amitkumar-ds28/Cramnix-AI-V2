@@ -60,7 +60,7 @@ export default function Home() {
   const [shareMsg, setShareMsg] = useState('');
 
   // Right Panel & Mobile Menu Toggle States
-  const [isRightPanelOpen, setIsRightPanelOpen] = useState(true);
+  const [isRightPanelOpen, setIsRightPanelOpen] = useState(false);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
 
   const chatEndRef = useRef(null);
@@ -398,7 +398,7 @@ export default function Home() {
   }
 
   const navItem = (id, icon, label, active) => (
-    <div key={id} onClick={() => { setActiveNav(id); setChatPrompt(''); setResponse(''); }} style={{ display: 'flex', alignItems: 'center', gap: '10px', padding: '11px 14px', borderRadius: '12px', cursor: 'pointer', fontSize: '14px', fontWeight: active ? '800' : '500', background: active ? purple : 'transparent', color: active ? '#fff' : '#C4B5FD' }}>
+    <div key={id} onClick={() => { setActiveNav(id); setChatPrompt(''); setResponse(''); setIsMobileMenuOpen(false); }} style={{ display: 'flex', alignItems: 'center', gap: '10px', padding: '11px 14px', borderRadius: '12px', cursor: 'pointer', fontSize: '14px', fontWeight: active ? '800' : '500', background: active ? purple : 'transparent', color: active ? '#fff' : '#C4B5FD' }}>
       <span>{icon}</span> {label}
     </div>
   );
@@ -412,12 +412,63 @@ export default function Home() {
   return (
     <div style={{ display: 'flex', minHeight: '100vh', background: `radial-gradient(800px 400px at 15% 0%, #2E1A5E 0%, transparent 60%), radial-gradient(700px 400px at 90% 20%, #3B1A6B 0%, transparent 60%), ${bg}`, color: textColor, fontFamily: 'Inter, sans-serif', padding: '14px', gap: '14px', boxSizing: 'border-box', position: 'relative', overflowX: 'hidden' }}>
       
+      {/* Responsive Media Query CSS Helper */}
+      <style dangerouslySetInnerHTML={{__html: `
+        @media (max-width: 900px) {
+          .desktop-sidebar {
+            position: fixed !important;
+            left: ${isMobileMenuOpen ? '0px' : '-320px'} !important;
+            top: 0 !important;
+            bottom: 0 !important;
+            height: 100vh !important;
+            z-index: 1000 !important;
+            transition: left 0.3s ease !important;
+          }
+          .mobile-menu-btn {
+            display: flex !important;
+          }
+          .main-content-area {
+            margin-right: 0px !important;
+          }
+          .right-panel-aside {
+            right: ${isRightPanelOpen ? '0px' : '-340px'} !important;
+            z-index: 1000 !important;
+          }
+        }
+        @media (min-width: 901px) {
+          .mobile-menu-btn {
+            display: none !important;
+          }
+          .desktop-sidebar {
+            left: auto !important;
+          }
+          .main-content-area {
+            margin-right: ${isRightPanelOpen ? '320px' : '0px'} !important;
+          }
+          .right-panel-aside {
+            right: ${isRightPanelOpen ? '14px' : '-340px'} !important;
+          }
+        }
+      `}} />
+
+      {/* Mobile Header Bar */}
+      <div className="mobile-menu-btn" style={{ position: 'fixed', top: '10px', left: '10px', right: '10px', background: 'rgba(30,21,56,0.95)', padding: '10px 16px', borderRadius: '14px', border: `1px solid ${cardBorder}`, display: 'none', justifyContent: 'space-between', alignItems: 'center', zIndex: 900, backdropFilter: 'blur(10px)' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+          <button onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)} style={{ background: purple, color: '#fff', border: 'none', padding: '6px 12px', borderRadius: '8px', cursor: 'pointer', fontWeight: 'bold' }}>☰ Menu</button>
+          <span style={{ fontWeight: '900', color: heading, fontSize: '16px' }}>Cramnix AI</span>
+        </div>
+        <button onClick={() => setIsRightPanelOpen(!isRightPanelOpen)} style={{ background: cardBg, color: heading, border: `1px solid ${cardBorder}`, padding: '6px 12px', borderRadius: '8px', fontSize: '12px' }}>✨ Quiz/Tools</button>
+      </div>
+
       {/* Left Sidebar */}
-      <aside style={{ width: '260px', flexShrink: 0, background: 'linear-gradient(180deg, rgba(30,21,56,0.95), rgba(10,6,24,0.95))', borderRadius: '22px', border: `1px solid ${cardBorder}`, padding: '20px 14px', display: 'flex', flexDirection: 'column', justifyContent: 'space-between', zIndex: 30 }}>
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '10px', padding: '4px 8px 16px 8px' }}>
-            <img src="/logo.png" alt="Cramnix Logo" onError={(e) => { e.target.style.display = 'none'; }} style={{ width: '38px', height: '38px', borderRadius: '12px', objectFit: 'cover', background: 'white', padding: '2px' }} />
-            <div><div style={{ fontSize: '19px', fontWeight: '900', color: heading, lineHeight: '1' }}>Cramnix AI</div><div style={{ fontSize: '10px', color: subText, letterSpacing: '1px', marginTop: '4px' }}>STUDENT ZONE 🎓</div></div>
+      <aside className="desktop-sidebar" style={{ width: '260px', flexShrink: 0, background: 'linear-gradient(180deg, rgba(30,21,56,0.98), rgba(10,6,24,0.98))', borderRadius: '22px', border: `1px solid ${cardBorder}`, padding: '20px 14px', display: 'flex', flexDirection: 'column', justifyContent: 'space-between', zIndex: 30, boxSizing: 'border-box' }}>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '4px', overflowY: 'auto', flex: 1 }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '4px 8px 16px 8px' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+              <img src="/logo.png" alt="Cramnix Logo" onError={(e) => { e.target.style.display = 'none'; }} style={{ width: '38px', height: '38px', borderRadius: '12px', objectFit: 'cover', background: 'white', padding: '2px' }} />
+              <div><div style={{ fontSize: '19px', fontWeight: '900', color: heading, lineHeight: '1' }}>Cramnix AI</div><div style={{ fontSize: '10px', color: subText, letterSpacing: '1px', marginTop: '4px' }}>STUDENT ZONE 🎓</div></div>
+            </div>
+            <button onClick={() => setIsMobileMenuOpen(false)} style={{ background: red, color: '#fff', border: 'none', padding: '4px 8px', borderRadius: '6px', fontSize: '12px', display: 'none' }} className="mobile-menu-btn">✕</button>
           </div>
           {navItem('dashboard', '📄', 'Dashboard', activeNav === 'dashboard')}
           {navItem('student', '✨', 'Student Zone', activeNav === 'student')}
@@ -437,21 +488,21 @@ export default function Home() {
           </div>
           <div onClick={handleLogout} style={{ display: 'flex', alignItems: 'center', gap: '10px', padding: '11px 14px', borderRadius: '12px', cursor: 'pointer', fontSize: '14px', color: '#FCA5A5', marginTop: '8px' }}><span>↩️</span> Logout</div>
         </div>
-        <div style={{ background: 'rgba(255,255,255,0.08)', padding: '10px', borderRadius: '14px', display: 'flex', alignItems: 'center', gap: '10px', marginTop: '12px' }}>
+        <div style={{ background: 'rgba(255,255,255,0.08)', padding: '10px', borderRadius: '14px', display: 'flex', alignItems: 'center', gap: '10px', marginTop: '12px', flexShrink: 0 }}>
           <div style={{ width: '36px', height: '36px', background: purple, borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: '900', fontSize: '16px' }}>{userName ? userName[0].toUpperCase() : 'A'}</div>
           <div style={{ flex: 1, overflow: 'hidden' }}><div style={{ fontSize: '14px', fontWeight: '800', color: heading, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{userName}</div></div>
         </div>
       </aside>
 
       {/* Main Content Area */}
-      <main style={{ flex: 1, minWidth: 0, background: 'rgba(10,6,24,0.55)', borderRadius: '22px', border: `1px solid ${cardBorder}`, padding: '20px', display: 'flex', flexDirection: 'column', backdropFilter: 'blur(10px)', transition: 'all 0.3s ease', marginRight: isRightPanelOpen ? '320px' : '0px' }}>
+      <main className="main-content-area" style={{ flex: 1, minWidth: 0, background: 'rgba(10,6,24,0.55)', borderRadius: '22px', border: `1px solid ${cardBorder}`, padding: '20px', display: 'flex', flexDirection: 'column', backdropFilter: 'blur(10px)', transition: 'margin-right 0.3s ease', marginTop: '50px', boxSizing: 'border-box' }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px', flexWrap: 'wrap', gap: '10px' }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
             <h1 style={{ margin: 0, fontSize: '22px', fontWeight: '900', color: heading }}>{activeNav === 'chatpdf' ? 'Chat with PDF' : activeNav === 'dashboard' ? 'Dashboard' : activeNav === 'student' ? 'Student Zone' : activeNav === 'professional' ? 'Professional Zone' : activeNav === 'focus' ? 'Focus Zone' : activeNav === 'library' ? 'Library' : activeNav.charAt(0).toUpperCase() + activeNav.slice(1)}</h1>
             {activeNav === 'chatpdf' ? (<span style={{ fontSize: '11px', background: 'rgba(139,92,246,0.25)', border: `1px solid ${cardBorder}`, padding: '4px 9px', borderRadius: '999px', fontWeight: '800' }}>{sharedFile ? `📄 ${sharedFile.name.slice(0, 20)}` : '📄 No PDF'}</span>) : (<span style={{ fontSize: '11px', background: 'rgba(255,255,255,0.08)', border: `1px solid ${cardBorder}`, padding: '4px 9px', borderRadius: '999px', fontWeight: '700', color: subText }}>📄 No PDF</span>)}
             <span style={{ fontSize: '11px', color: '#86EFAC' }}>🟢 Online</span>
           </div>
-          <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+          <div style={{ display: 'flex', gap: '8px', alignItems: 'center', flexWrap: 'wrap' }}>
             <button onClick={() => setAutoRead(!autoRead)} style={{ background: autoRead ? green : cardBg, border: `1px solid ${cardBorder}`, color: heading, padding: '7px 12px', borderRadius: '999px', fontSize: '12px', cursor: 'pointer', fontWeight: '700' }}>🔊 Auto Read {autoRead ? 'ON' : 'OFF'}</button>
             <button onClick={handleShare} style={{ background: cardBg, border: `1px solid ${cardBorder}`, color: heading, padding: '7px 12px', borderRadius: '999px', fontSize: '12px', cursor: 'pointer', fontWeight: '700' }}>↗ Share</button>
             <button onClick={handleExport} style={{ background: cardBg, border: `1px solid ${cardBorder}`, color: heading, padding: '7px 12px', borderRadius: '999px', fontSize: '12px', cursor: 'pointer', fontWeight: '700' }}>⬇ Export</button>
@@ -467,7 +518,7 @@ export default function Home() {
         <div style={{ flex: 1, overflowY: 'auto', display: 'flex', flexDirection: 'column', minHeight: '300px' }}>
           {activeNav === 'dashboard' && (
             <div style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4,1fr)', gap: '12px' }}>
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '12px' }}>
                 <div style={{ background: 'linear-gradient(135deg,#7C3AED,#4C1D95)', padding: '16px', borderRadius: '16px' }}><div style={{ fontSize: '11px', opacity: 0.9 }}>📅 TODAY STUDY</div><div style={{ fontSize: '22px', fontWeight: '900', marginTop: '8px' }}>{totalFocusMins}m</div><div style={{ fontSize: '11px', marginTop: '4px', opacity: 0.85 }}>Goal: 180m • {goalPercent}% done</div></div>
                 <div style={{ ...glass }}><div style={{ fontSize: '11px', color: subText }}>🍅 POMODORO</div><div style={{ fontSize: '22px', fontWeight: '900', marginTop: '8px' }}>{pomodoroCount} Sessions</div><div style={{ fontSize: '11px', color: subText, marginTop: '4px' }}>🔥 {streak} Days Streak</div></div>
                 <div style={{ ...glass }}><div style={{ fontSize: '11px', color: subText }}>🧠 QUIZ AVG</div><div style={{ fontSize: '22px', fontWeight: '900', marginTop: '8px' }}>{quizAvg}%</div><div style={{ fontSize: '11px', color: subText, marginTop: '4px' }}>{quizScores.length} Quiz Done</div></div>
@@ -505,7 +556,7 @@ export default function Home() {
                 <p style={{ fontSize: '13px', color: subText, margin: '0 0 14px 0' }}>Tell me your topic, time and level. I will make your full day-wise + year-wise plan in English.</p>
                 <label style={{ fontSize: '12px', fontWeight: '700', color: heading }}>1. What is your topic / subject?</label>
                 <input value={studyTopic} onChange={(e) => setStudyTopic(e.target.value)} placeholder="e.g. Photosynthesis, Human Body, Maths - Algebra, Full Class 10 Science" style={{ ...inputStyle, margin: '6px 0 14px 0' }} />
-                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '10px' }}>
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))', gap: '10px' }}>
                   <div><label style={{ fontSize: '12px', fontWeight: '700', color: heading }}>2. How many days?</label><select value={studyDays} onChange={(e) => setStudyDays(e.target.value)} style={{ ...inputStyle, marginTop: '6px', padding: '10px' }}><option>1 Day</option><option>7 Days</option><option>30 Days</option><option>3 Months</option><option>1 Year</option></select></div>
                   <div><label style={{ fontSize: '12px', fontWeight: '700', color: heading }}>3. How hard is it?</label><select value={studyLevel} onChange={(e) => setStudyLevel(e.target.value)} style={{ ...inputStyle, marginTop: '6px', padding: '10px' }}><option>Easy - I know basics</option><option>Medium - Little bit hard</option><option>Hard - Very difficult</option></select></div>
                   <div><label style={{ fontSize: '12px', fontWeight: '700', color: heading }}>4. Daily study time?</label><select value={studyHours} onChange={(e) => setStudyHours(e.target.value)} style={{ ...inputStyle, marginTop: '6px', padding: '10px' }}><option>1 Hour / Day</option><option>2 Hours / Day</option><option>3 Hours / Day</option><option>5 Hours / Day</option></select></div>
@@ -620,7 +671,7 @@ export default function Home() {
                   {weekData.map((w) => (<div key={w.day} style={{ flex: 1, textAlign: 'center' }}><div style={{ fontSize: '12px', fontWeight: '700', marginBottom: '6px' }}>{w.val}%</div><div style={{ height: `${Math.max(6, w.val * 3.2)}px`, background: 'linear-gradient(180deg,#8B5CF6,#4C1D95)', borderRadius: '8px' }}></div><div style={{ fontSize: '11px', color: subText, marginTop: '6px' }}>{w.mins}</div><div style={{ fontSize: '12px', color: subText }}>{w.day}</div></div>))}
                 </div>
               </div>
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '14px' }}>
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: '14px' }}>
                 <div style={{ ...glass }}><b style={{ color: heading }}>📱 App Usage Today</b><div style={{ fontSize: '30px', fontWeight: '900', marginTop: '10px', color: heading }}>{todayMins}m</div><div style={{ fontSize: '12px', color: subText }}>{dashboardMessages.length + studentMessages.length} AI Questions • {pomodoroCount} Focus Sessions</div><div style={{ background: 'rgba(255,255,255,0.1)', height: '6px', borderRadius: '999px', marginTop: '16px', overflow: 'hidden' }}><div style={{ width: `${goalPercent}%`, background: purple, height: '6px' }}></div></div><div style={{ fontSize: '12px', marginTop: '8px', color: subText }}>Daily Goal: 120m • {goalPercent}% done</div></div>
                 <div style={{ ...glass }}><b style={{ color: heading }}>🎯 Quiz Performance</b>{quizScores.length === 0 ? (<div><p style={{ color: subText, fontSize: '13px', lineHeight: '1.6', marginTop: '10px' }}>You have not taken a quiz yet.<br />Take a quiz and your score will show here in the graph.</p><button onClick={() => setActiveNav('quizzes')} style={{ ...primaryBtn, marginTop: '8px', fontSize: '12px', padding: '8px 14px' }}>🧠 Go to Quiz →</button></div>) : (<div style={{ marginTop: '10px' }}><div style={{ fontSize: '24px', fontWeight: '900' }}>{quizAvg}% Avg</div><div style={{ display: 'flex', gap: '8px', alignItems: 'flex-end', height: '70px', marginTop: '10px' }}>{quizScores.map((s, i) => (<div key={i} style={{ flex: 1, textAlign: 'center' }}><div style={{ fontSize: '11px' }}>{Math.round((s.got / s.total) * 100)}%</div><div style={{ height: `${(s.got / s.total) * 45}px`, background: green, borderRadius: '6px', marginTop: '4px' }}></div><div style={{ fontSize: '11px', color: subText }}>Q{i + 1}</div></div>))}</div></div>)}</div>
               </div>
@@ -679,7 +730,7 @@ export default function Home() {
           right: isRightPanelOpen ? '320px' : '0px',
           top: '50%',
           transform: 'translateY(-50%)',
-          zIndex: 50,
+          zIndex: 950,
           background: '#1E1538',
           color: '#C4B5FD',
           border: '1px solid rgba(255,255,255,0.15)',
@@ -701,11 +752,11 @@ export default function Home() {
       </button>
 
       {/* COMPLETELY COLLAPSIBLE RIGHT PANEL (Quiz Engine, Flashcards, & Goal Planning) */}
-      <aside 
+      <aside className="right-panel-aside"
         style={{
           width: '300px',
           flexShrink: 0,
-          background: 'rgba(20,12,40,0.95)',
+          background: 'rgba(20,12,40,0.98)',
           borderRadius: '22px',
           border: `1px solid ${cardBorder}`,
           padding: '18px',
@@ -713,12 +764,11 @@ export default function Home() {
           flexDirection: 'column',
           gap: '18px',
           position: 'fixed',
-          right: isRightPanelOpen ? '14px' : '-320px',
           top: '14px',
           bottom: '14px',
-          zIndex: 40,
           transition: 'right 0.3s ease',
-          overflowY: 'auto'
+          overflowY: 'auto',
+          boxSizing: 'border-box'
         }}
       >
         <div>

@@ -408,12 +408,12 @@ export default function Home() {
   return (
     <div style={{ display: 'flex', height: '100vh', width: '100vw', background: `radial-gradient(800px 400px at 15% 0%, #2E1A5E 0%, transparent 60%), radial-gradient(700px 400px at 90% 20%, #3B1A6B 0%, transparent 60%), ${bg}`, color: textColor, fontFamily: 'Inter, sans-serif', padding: '12px', gap: '12px', boxSizing: 'border-box', position: 'relative', overflow: 'hidden' }}>
       
-      {/* PERFECT MOBILE & LAPTOP RESPONSIVE STYLES */}
+      {/* 100% RESPONSIVE CLEAN STYLES FOR BOTH MOBILE & LAPTOP */}
       <style dangerouslySetInnerHTML={{__html: `
         * { box-sizing: border-box; max-width: 100%; }
         html, body { width: 100vw; height: 100vh; overflow: hidden; margin: 0; padding: 0; }
         @media (max-width: 900px) {
-          html, body { overflow: auto !important; height: auto !important; }
+          html, body { overflow-y: auto !important; height: auto !important; }
           .desktop-sidebar {
             position: fixed !important;
             left: ${isMobileMenuOpen ? '0px' : '-100%'} !important;
@@ -445,6 +445,8 @@ export default function Home() {
             height: auto !important;
             margin-top: 12px !important;
             border-radius: 14px !important;
+            display: flex !important;
+            box-shadow: none !important;
           }
           .desktop-toggle-arrow {
             display: none !important;
@@ -467,17 +469,18 @@ export default function Home() {
             right: ${isRightPanelOpen ? '12px' : '-330px'} !important;
             height: calc(100vh - 24px) !important;
             transition: right 0.3s ease !important;
+            display: flex !important;
           }
         }
       `}} />
 
-      {/* Mobile Header Bar */}
+      {/* Mobile Top Header Bar */}
       <div className="mobile-menu-btn" style={{ position: 'fixed', top: '8px', left: '8px', right: '8px', background: 'rgba(30,21,56,0.95)', padding: '10px 14px', borderRadius: '14px', border: `1px solid ${cardBorder}`, display: 'none', justifyContent: 'space-between', alignItems: 'center', zIndex: 900, backdropFilter: 'blur(10px)', boxSizing: 'border-box' }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
           <button onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)} style={{ background: purple, color: '#fff', border: 'none', padding: '6px 12px', borderRadius: '8px', cursor: 'pointer', fontWeight: 'bold', fontSize: '12px' }}>☰ Menu</button>
           <span style={{ fontWeight: '900', color: heading, fontSize: '14px' }}>Cramnix AI</span>
         </div>
-        <button onClick={() => setIsRightPanelOpen(!isRightPanelOpen)} style={{ background: cardBg, color: heading, border: `1px solid ${cardBorder}`, padding: '6px 12px', borderRadius: '8px', fontSize: '11px' }}>✨ Quiz/Tools</button>
+        <span style={{ fontSize: '11px', color: '#86EFAC', fontWeight: '700' }}>🟢 Online</span>
       </div>
 
       {/* Left Sidebar */}
@@ -735,7 +738,7 @@ export default function Home() {
         )}
       </main>
 
-      {/* FLOATING TOGGLE ARROW FOR RIGHT PANEL */}
+      {/* FLOATING TOGGLE ARROW FOR RIGHT PANEL (Desktop Only) */}
       <button className="desktop-toggle-arrow"
         onClick={() => setIsRightPanelOpen(!isRightPanelOpen)}
         style={{
@@ -764,7 +767,7 @@ export default function Home() {
         {isRightPanelOpen ? '❯' : '❮'}
       </button>
 
-      {/* RIGHT PANEL (Quiz Engine, Flashcards, & Goal Planning) */}
+      {/* RIGHT PANEL (Quiz Engine, Flashcards, & Goal Planning - Flowing naturally on mobile) */}
       <aside className="right-panel-aside"
         style={{
           width: '290px',

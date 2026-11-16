@@ -59,8 +59,7 @@ export default function Home() {
   const [isSpeaking, setIsSpeaking] = useState(false);
   const [shareMsg, setShareMsg] = useState('');
 
-  // Right Panel & Mobile Menu Toggle States
-  const [isRightPanelOpen, setIsRightPanelOpen] = useState(false);
+  const [isRightPanelOpen, setIsRightPanelOpen] = useState(true);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
 
   const chatEndRef = useRef(null);
@@ -409,9 +408,11 @@ export default function Home() {
   return (
     <div style={{ display: 'flex', height: '100vh', width: '100vw', background: `radial-gradient(800px 400px at 15% 0%, #2E1A5E 0%, transparent 60%), radial-gradient(700px 400px at 90% 20%, #3B1A6B 0%, transparent 60%), ${bg}`, color: textColor, fontFamily: 'Inter, sans-serif', padding: '12px', gap: '12px', boxSizing: 'border-box', position: 'relative', overflow: 'hidden' }}>
       
-      {/* Responsive Media Query CSS Helper */}
+      {/* Exact CSS Responsive Media Queries (Mobile Fix + Exact Laptop Layout) */}
       <style dangerouslySetInnerHTML={{__html: `
+        * { box-sizing: border-box; }
         @media (max-width: 900px) {
+          body, html { overflow-x: hidden; }
           .desktop-sidebar {
             position: fixed !important;
             left: ${isMobileMenuOpen ? '0px' : '-100%'} !important;
@@ -430,9 +431,10 @@ export default function Home() {
             margin-left: 0px !important;
             margin-right: 0px !important;
             width: 100% !important;
-            padding: 12px !important;
-            margin-top: 52px !important;
-            height: calc(100vh - 72px) !important;
+            padding: 10px !important;
+            margin-top: 50px !important;
+            height: calc(100vh - 68px) !important;
+            overflow-y: auto !important;
           }
           .right-panel-aside {
             right: ${isRightPanelOpen ? '0px' : '-100%'} !important;
@@ -507,7 +509,7 @@ export default function Home() {
       </aside>
 
       {/* Main Content Area */}
-      <main className="main-content-area" style={{ flex: 1, minWidth: 0, background: 'rgba(10,6,24,0.55)', borderRadius: '18px', border: `1px solid ${cardBorder}`, padding: '16px 20px', display: 'flex', flexDirection: 'column', backdropFilter: 'blur(10px)', transition: 'margin-right 0.3s ease', boxSizing: 'border-box', height: '100%', overflow: 'hidden' }}>
+      <main className="main-content-area" style={{ flex: 1, minWidth: 0, background: 'rgba(10,6,24,0.55)', borderRadius: '18px', border: `1px solid ${cardBorder}`, padding: '16px 20px', display: 'flex', flexDirection: 'column', backdropFilter: 'blur(10px)', boxSizing: 'border-box', height: '100%', overflow: 'hidden' }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '10px', flexWrap: 'wrap', gap: '8px', flexShrink: 0 }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
             <h1 style={{ margin: 0, fontSize: '19px', fontWeight: '900', color: heading }}>{activeNav === 'chatpdf' ? 'Chat with PDF' : activeNav === 'dashboard' ? 'Dashboard' : activeNav === 'student' ? 'Student Zone' : activeNav === 'professional' ? 'Professional Zone' : activeNav === 'focus' ? 'Focus Zone' : activeNav === 'library' ? 'Library' : activeNav.charAt(0).toUpperCase() + activeNav.slice(1)}</h1>
@@ -756,7 +758,7 @@ export default function Home() {
         {isRightPanelOpen ? '❯' : '❮'}
       </button>
 
-      {/* COMPLETELY COLLAPSIBLE RIGHT PANEL (Quiz Engine, Flashcards, & Goal Planning) */}
+      {/* RIGHT PANEL (Quiz Engine, Flashcards, & Goal Planning) */}
       <aside className="right-panel-aside"
         style={{
           width: '290px',

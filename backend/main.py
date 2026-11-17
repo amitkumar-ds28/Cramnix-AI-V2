@@ -36,12 +36,12 @@ async def generate_ai_content(data: PromptRequest):
     
     client = genai.Client(api_key=api_key)
     
-    # Bada retry count aur async delay taaki jab tak server free na ho, code chupchaap wait karta rahe
-    max_retries = 30
-    delay = 5
+    max_retries = 5
+    delay = 3
     
     for attempt in range(max_retries):
         try:
+            # Aapka wahi pasandida gemini-3.8-flash model
             response = client.models.generate_content(
                 model="gemini-3.8-flash",
                 contents=data.prompt
@@ -49,12 +49,9 @@ async def generate_ai_content(data: PromptRequest):
             return {"response": response.text}
         except Exception as e:
             error_message = str(e)
-            # Agar 503 ya high demand error hai, toh chupchaap wait karke dobara try karo
-            if ("503" in error_message or "UNAVAILABLE" in error_message or "high demand" in error_message.lower()) and attempt < max_retries - 1:
+            if attempt < max_retries - 1:
                 await asyncio.sleep(delay)
-                delay = min(delay + 5, 20)  # Wait time badhega lekin 20 seconds se upar nahi jayega per retry
+                delay *= 2
                 continue
-            elif attempt == max_retries - 1:
-                raise HTTPException(status_code=500, detail=f"Server is taking longer than usual due to high traffic. Please try again. Details: {error_message}")
             else:
                 raise HTTPException(status_code=500, detail=error_message)

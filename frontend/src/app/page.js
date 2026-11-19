@@ -1,5 +1,6 @@
 "use client";
 import { useState, useEffect, useRef } from 'react';
+import ReactMarkdown from 'react-markdown';
 
 export default function Home() {
   const [isLoggedIn, setIsLoggedIn] = useState(false);
@@ -40,9 +41,7 @@ export default function Home() {
   const [libraryFilter, setLibraryFilter] = useState('All');
   const [chats, setChats] = useState([{ id: '1', title: 'New Chat', messages: [], pinned: false }]);
   const [currentChatId, setCurrentChatId] = useState('1');
-  const [inputMethod, setInputMethod] = useState('file');
   const [sharedFile, setSharedFile] = useState(null);
-  const [planPrompt, setPlanPrompt] = useState('');
   const [chatPrompt, setChatPrompt] = useState('');
   const [meetingPrompt, setMeetingPrompt] = useState('');
   const [emailPrompt, setEmailPrompt] = useState('');
@@ -156,7 +155,7 @@ export default function Home() {
   const handleNewChatClick = () => {
     if (window.speechSynthesis) window.speechSynthesis.cancel();
     setIsSpeaking(false);
-    setChatPrompt(''); setPlanPrompt(''); setResponse('');
+    setChatPrompt(''); setResponse('');
     if (activeNav === 'dashboard') setDashboardMessages([]);
     if (activeNav === 'student') setStudentMessages([]);
     if (activeNav === 'chatpdf') { setPdfMessages([]); setSharedFile(null); }
@@ -283,11 +282,13 @@ export default function Home() {
         if (!apiSaved) { const nc = requestCount + 1; setRequestCount(nc); localStorage.setItem('cramnix_count', nc.toString()); localStorage.setItem('cramnix_date', new Date().toDateString()); }
       } else {
         const friendly = '⚠️ Something went wrong. Please try again in a few minutes.';
-        setResponse(friendly); setStudentMessages(prev => [...prev, { type: 'ai', text: friendly }]);
+        setResponse(friendly);
+        setStudentMessages(prev => [...prev, { type: 'ai', text: friendly }]);
       }
     } catch (err) {
       const msg = 'Connection Error. Please check your internet and try again.';
-      setResponse(msg); setStudentMessages(prev => [...prev, { type: 'ai', text: msg }]);
+      setResponse(msg);
+      setStudentMessages(prev => [...prev, { type: 'ai', text: msg }]);
     }
     setLoading(false);
   };
@@ -428,7 +429,7 @@ export default function Home() {
           }
           .main-content-area {
             margin-left: 0px !important;
-            margin-right: 0px !important;
+            margin-right: ${isRightPanelOpen ? '0px' : '0px'} !important;
             width: 100% !important;
             padding: 10px !important;
             margin-top: 48px !important;
@@ -553,7 +554,45 @@ export default function Home() {
               {dashboardMessages.length > 0 && (
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', padding: '4px 0' }}>
                   {dashboardMessages.map((m, i) => (
-                    <div key={i}>{m.type === 'user' ? <div style={{ background: purple, color: '#fff', padding: '8px 12px', borderRadius: '14px 14px 4px 14px', maxWidth: '80%', marginLeft: 'auto', fontSize: '12px', lineHeight: '1.4' }}>{m.text}</div> : <div style={{ background: 'rgba(139,92,246,0.12)', border: `1px solid ${cardBorder}`, padding: '12px', borderRadius: '12px', fontSize: '12px', lineHeight: '1.5', whiteSpace: 'pre-wrap' }}><div style={{ fontWeight: '800', color: heading, marginBottom: '4px' }}>✨ Cramnix AI</div>{m.text}<div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap', marginTop: '8px' }}><button onClick={() => speakAnswer(m.text)} style={{ background: purple, color: '#fff', border: 'none', padding: '4px 8px', borderRadius: '6px', cursor: 'pointer', fontSize: '11px' }}>🔊 Read Aloud</button><button onClick={stopSpeaking} style={{ background: 'rgba(255,255,255,0.1)', color: '#fff', border: `1px solid ${cardBorder}`, padding: '4px 8px', borderRadius: '6px', cursor: 'pointer', fontSize: '11px' }}>⏹ Stop</button><button onClick={() => handleDownloadAnswer(m.text)} style={{ background: green, color: '#fff', border: 'none', padding: '4px 8px', borderRadius: '6px', cursor: 'pointer', fontSize: '11px' }}>📥 Download</button><button onClick={handleShare} style={{ background: 'rgba(255,255,255,0.1)', color: '#fff', border: `1px solid ${cardBorder}`, padding: '4px 8px', borderRadius: '6px', cursor: 'pointer', fontSize: '11px' }}>↗ Share</button></div></div>}</div>
+                    <div key={i}>{m.type === 'user' ? <div style={{ background: purple, color: '#fff', padding: '8px 12px', borderRadius: '14px 14px 4px 14px', maxWidth: '80%', marginLeft: 'auto', fontSize: '12px', lineHeight: '1.4' }}>{m.text}</div> : <div style={{ background: 'rgba(139,92,246,0.12)', border: `1px solid ${cardBorder}`, padding: '12px', borderRadius: '12px', fontSize: '12px', lineHeight: '1.5' }}><div style={{ fontWeight: '800', color: heading, marginBottom: '4px' }}>✨ Cramnix AI</div>
+                      <ReactMarkdown
+                        components={{
+                          code({ node, inline, className, children, ...props }) {
+                            const codeString = String(children).replace(/\n$/, '');
+                            if (inline) {
+                              return <code className="bg-purple-950 px-1 py-0.5 rounded text-purple-200 text-xs font-mono" {...props}>{children}</code>;
+                            }
+                            return (
+                              <div className="relative my-3 rounded-lg overflow-hidden border border-purple-800/60 bg-slate-950">
+                                <div className="flex items-center justify-between px-4 py-1.5 bg-purple-950/80 text-xs text-purple-300 border-b border-purple-800/40">
+                                  <span>Code Snippet</span>
+                                  <button
+                                    onClick={() => {
+                                      navigator.clipboard.writeText(codeString);
+                                      alert('Code copied to clipboard!');
+                                    }}
+                                    className="flex items-center gap-1 bg-purple-600 hover:bg-purple-500 text-white px-2 py-0.5 rounded text-[11px] transition-colors cursor-pointer font-bold"
+                                  >
+                                    📋 Copy
+                                  </button>
+                                </div>
+                                <pre className="p-4 overflow-x-auto text-xs text-purple-100 font-mono">
+                                  <code {...props}>{children}</code>
+                                </pre>
+                              </div>
+                            );
+                          },
+                          p: ({ children }) => <p className="mb-2">{children}</p>,
+                          ul: ({ children }) => <ul className="list-disc pl-5 mb-2 space-y-1">{children}</ul>,
+                          ol: ({ children }) => <ol className="list-decimal pl-5 mb-2 space-y-1">{children}</ol>,
+                          li: ({ children }) => <li className="mb-1">{children}</li>,
+                          h3: ({ children }) => <h3 className="text-base font-bold text-purple-200 mt-3 mb-1">{children}</h3>,
+                          h4: ({ children }) => <h4 className="text-sm font-semibold text-purple-300 mt-2 mb-1">{children}</h4>,
+                        }}
+                      >
+                        {m.text}
+                      </ReactMarkdown>
+                      <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap', marginTop: '8px' }}><button onClick={() => speakAnswer(m.text)} style={{ background: purple, color: '#fff', border: 'none', padding: '4px 8px', borderRadius: '6px', cursor: 'pointer', fontSize: '11px' }}>🔊 Read Aloud</button><button onClick={stopSpeaking} style={{ background: 'rgba(255,255,255,0.1)', color: '#fff', border: `1px solid ${cardBorder}`, padding: '4px 8px', borderRadius: '6px', cursor: 'pointer', fontSize: '11px' }}>⏹ Stop</button><button onClick={() => handleDownloadAnswer(m.text)} style={{ background: green, color: '#fff', border: 'none', padding: '4px 8px', borderRadius: '6px', cursor: 'pointer', fontSize: '11px' }}>📥 Download</button><button onClick={handleShare} style={{ background: 'rgba(255,255,255,0.1)', color: '#fff', border: `1px solid ${cardBorder}`, padding: '4px 8px', borderRadius: '6px', cursor: 'pointer', fontSize: '11px' }}>↗ Share</button></div></div></div>}
                   ))}
                   {loading && <div style={{ fontSize: '11px', color: subText }}>✨ Cramnix AI is thinking...</div>}
                   <div ref={chatEndRef} />
@@ -579,7 +618,45 @@ export default function Home() {
               {studentMessages.length > 0 && (
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
                   {studentMessages.map((m, i) => (
-                    <div key={i}>{m.type === 'user' ? <div style={{ background: purple, color: '#fff', padding: '8px 12px', borderRadius: '14px 14px 4px 14px', maxWidth: '80%', marginLeft: 'auto', fontSize: '12px' }}>{m.text}</div> : <div style={{ background: 'rgba(139,92,246,0.12)', border: `1px solid ${cardBorder}`, padding: '12px', borderRadius: '12px', fontSize: '12px', lineHeight: '1.5', whiteSpace: 'pre-wrap' }}>{m.text}</div>}</div>
+                    <div key={i}>{m.type === 'user' ? <div style={{ background: purple, color: '#fff', padding: '8px 12px', borderRadius: '14px 14px 4px 14px', maxWidth: '80%', marginLeft: 'auto', fontSize: '12px' }}>{m.text}</div> : <div style={{ background: 'rgba(139,92,246,0.12)', border: `1px solid ${cardBorder}`, padding: '12px', borderRadius: '12px', fontSize: '12px', lineHeight: '1.5' }}>
+                      <ReactMarkdown
+                        components={{
+                          code({ node, inline, className, children, ...props }) {
+                            const codeString = String(children).replace(/\n$/, '');
+                            if (inline) {
+                              return <code className="bg-purple-950 px-1 py-0.5 rounded text-purple-200 text-xs font-mono" {...props}>{children}</code>;
+                            }
+                            return (
+                              <div className="relative my-3 rounded-lg overflow-hidden border border-purple-800/60 bg-slate-950">
+                                <div className="flex items-center justify-between px-4 py-1.5 bg-purple-950/80 text-xs text-purple-300 border-b border-purple-800/40">
+                                  <span>Code Snippet</span>
+                                  <button
+                                    onClick={() => {
+                                      navigator.clipboard.writeText(codeString);
+                                      alert('Code copied to clipboard!');
+                                    }}
+                                    className="flex items-center gap-1 bg-purple-600 hover:bg-purple-500 text-white px-2 py-0.5 rounded text-[11px] transition-colors cursor-pointer font-bold"
+                                  >
+                                    📋 Copy
+                                  </button>
+                                </div>
+                                <pre className="p-4 overflow-x-auto text-xs text-purple-100 font-mono">
+                                  <code {...props}>{children}</code>
+                                </pre>
+                              </div>
+                            );
+                          },
+                          p: ({ children }) => <p className="mb-2">{children}</p>,
+                          ul: ({ children }) => <ul className="list-disc pl-5 mb-2 space-y-1">{children}</ul>,
+                          ol: ({ children }) => <ol className="list-decimal pl-5 mb-2 space-y-1">{children}</ol>,
+                          li: ({ children }) => <li className="mb-1">{children}</li>,
+                          h3: ({ children }) => <h3 className="text-base font-bold text-purple-200 mt-3 mb-1">{children}</h3>,
+                          h4: ({ children }) => <h4 className="text-sm font-semibold text-purple-300 mt-2 mb-1">{children}</h4>,
+                        }}
+                      >
+                        {m.text}
+                      </ReactMarkdown>
+                    </div>}</div>
                   ))}
                 </div>
               )}
@@ -595,7 +672,45 @@ export default function Home() {
           {activeNav === 'student' && studentTab !== 'plan' && studentMessages.length > 0 && (
             <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', padding: '4px 0' }}>
               {studentMessages.map((m, i) => (
-                <div key={i}>{m.type === 'user' ? <div style={{ background: purple, color: '#fff', padding: '8px 12px', borderRadius: '14px 14px 4px 14px', maxWidth: '80%', marginLeft: 'auto', fontSize: '12px' }}>{m.text}</div> : <div style={{ background: 'rgba(139,92,246,0.12)', border: `1px solid ${cardBorder}`, padding: '12px', borderRadius: '12px', fontSize: '12px', lineHeight: '1.5', whiteSpace: 'pre-wrap' }}>{m.text}</div>}</div>
+                <div key={i}>{m.type === 'user' ? <div style={{ background: purple, color: '#fff', padding: '8px 12px', borderRadius: '14px 14px 4px 14px', maxWidth: '80%', marginLeft: 'auto', fontSize: '12px' }}>{m.text}</div> : <div style={{ background: 'rgba(139,92,246,0.12)', border: `1px solid ${cardBorder}`, padding: '12px', borderRadius: '12px', fontSize: '12px', lineHeight: '1.5' }}>
+                  <ReactMarkdown
+                    components={{
+                      code({ node, inline, className, children, ...props }) {
+                        const codeString = String(children).replace(/\n$/, '');
+                        if (inline) {
+                          return <code className="bg-purple-950 px-1 py-0.5 rounded text-purple-200 text-xs font-mono" {...props}>{children}</code>;
+                        }
+                        return (
+                          <div className="relative my-3 rounded-lg overflow-hidden border border-purple-800/60 bg-slate-950">
+                            <div className="flex items-center justify-between px-4 py-1.5 bg-purple-950/80 text-xs text-purple-300 border-b border-purple-800/40">
+                              <span>Code Snippet</span>
+                              <button
+                                onClick={() => {
+                                  navigator.clipboard.writeText(codeString);
+                                  alert('Code copied to clipboard!');
+                                }}
+                                className="flex items-center gap-1 bg-purple-600 hover:bg-purple-500 text-white px-2 py-0.5 rounded text-[11px] transition-colors cursor-pointer font-bold"
+                              >
+                                📋 Copy
+                              </button>
+                            </div>
+                            <pre className="p-4 overflow-x-auto text-xs text-purple-100 font-mono">
+                              <code {...props}>{children}</code>
+                            </pre>
+                          </div>
+                        );
+                      },
+                      p: ({ children }) => <p className="mb-2">{children}</p>,
+                      ul: ({ children }) => <ul className="list-disc pl-5 mb-2 space-y-1">{children}</ul>,
+                      ol: ({ children }) => <ol className="list-decimal pl-5 mb-2 space-y-1">{children}</ol>,
+                      li: ({ children }) => <li className="mb-1">{children}</li>,
+                      h3: ({ children }) => <h3 className="text-base font-bold text-purple-200 mt-3 mb-1">{children}</h3>,
+                      h4: ({ children }) => <h4 className="text-sm font-semibold text-purple-300 mt-2 mb-1">{children}</h4>,
+                    }}
+                  >
+                    {m.text}
+                  </ReactMarkdown>
+                </div>}</div>
               ))}
             </div>
           )}
@@ -628,13 +743,53 @@ export default function Home() {
           {activeNav === 'chatpdf' && pdfMessages.length > 0 && (
             <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', padding: '4px 0' }}>
               {pdfMessages.map((m, i) => (
-                <div key={i}>{m.type === 'user' ? <div style={{ background: purple, color: '#fff', padding: '8px 12px', borderRadius: '14px 14px 4px 14px', maxWidth: '80%', marginLeft: 'auto', fontSize: '12px' }}>{m.text}</div> : <div style={{ background: 'rgba(139,92,246,0.12)', border: `1px solid ${cardBorder}`, padding: '12px', borderRadius: '12px', fontSize: '12px', lineHeight: '1.5', whiteSpace: 'pre-wrap' }}><b>✨ Cramnix AI • PDF Chat</b><br /><br />{m.text}</div>}</div>
+                <div key={i}>{m.type === 'user' ? <div style={{ background: purple, color: '#fff', padding: '8px 12px', borderRadius: '14px 14px 4px 14px', maxWidth: '80%', marginLeft: 'auto', fontSize: '12px' }}>{m.text}</div> : <div style={{ background: 'rgba(139,92,246,0.12)', border: `1px solid ${cardBorder}`, padding: '12px', borderRadius: '12px', fontSize: '12px', lineHeight: '1.5' }}><b>✨ Cramnix AI • PDF Chat</b><br /><br />
+                  <ReactMarkdown
+                    components={{
+                      code({ node, inline, className, children, ...props }) {
+                        const codeString = String(children).replace(/\n$/, '');
+                        if (inline) {
+                          return <code className="bg-purple-950 px-1 py-0.5 rounded text-purple-200 text-xs font-mono" {...props}>{children}</code>;
+                        }
+                        return (
+                          <div className="relative my-3 rounded-lg overflow-hidden border border-purple-800/60 bg-slate-950">
+                            <div className="flex items-center justify-between px-4 py-1.5 bg-purple-950/80 text-xs text-purple-300 border-b border-purple-800/40">
+                              <span>Code Snippet</span>
+                              <button
+                                onClick={() => {
+                                  navigator.clipboard.writeText(codeString);
+                                  alert('Code copied to clipboard!');
+                                }}
+                                className="flex items-center gap-1 bg-purple-600 hover:bg-purple-500 text-white px-2 py-0.5 rounded text-[11px] transition-colors cursor-pointer font-bold"
+                              >
+                                📋 Copy
+                              </button>
+                            </div>
+                            <pre className="p-4 overflow-x-auto text-xs text-purple-100 font-mono">
+                              <code {...props}>{children}</code>
+                            </pre>
+                          </div>
+                        );
+                      },
+                      p: ({ children }) => <p className="mb-2">{children}</p>,
+                      ul: ({ children }) => <ul className="list-disc pl-5 mb-2 space-y-1">{children}</ul>,
+                      ol: ({ children }) => <ol className="list-decimal pl-5 mb-2 space-y-1">{children}</ol>,
+                      li: ({ children }) => <li className="mb-1">{children}</li>,
+                      h3: ({ children }) => <h3 className="text-base font-bold text-purple-200 mt-3 mb-1">{children}</h3>,
+                      h4: ({ children }) => <h4 className="text-sm font-semibold text-purple-300 mt-2 mb-1">{children}</h4>,
+                    }}
+                  >
+                    {m.text}
+                  </ReactMarkdown>
+                </div>}</div>
               ))}
             </div>
           )}
 
-          {activeNav === 'quizzes' && (<div style={{ ...glass }}><h3 style={{ margin: '0 0 6px 0', color: heading, fontSize: '14px' }}>🧠 Quizzes - {quizTopic || 'No Topic'}</h3><input value={quizTopic} onChange={(e) => setQuizTopic(e.target.value)} placeholder="Enter topic..." style={inputStyle} /><button onClick={() => generateRealQuiz(quizTopic)} style={{ ...primaryBtn, marginTop: '6px', width: '100%' }}>{quizLoading ? 'Generating...' : '⚡ Generate 5 MCQs'}</button>{quizQuestions.length === 0 ? <p style={{ fontSize: '11px', color: subText, marginTop: '8px' }}>No quiz yet.</p> : <div style={{ marginTop: '8px', fontSize: '11px', whiteSpace: 'pre-wrap' }}>{quizQuestions[0].q}</div>}</div>)}
-          {activeNav === 'flashcards' && (<div style={{ ...glass }}><h3 style={{ margin: '0 0 6px 0', color: heading, fontSize: '14px' }}>📄 Flashcards - {flashTopic || 'No Topic'}</h3><input value={flashTopic} onChange={(e) => setFlashTopic(e.target.value)} placeholder="Enter topic..." style={inputStyle} /><button onClick={() => generateRealFlashcards(flashTopic)} style={{ ...primaryBtn, marginTop: '6px', width: '100%' }}>{flashLoading ? 'Generating...' : '⚡ Generate Flashcards'}</button><p style={{ fontSize: '11px', color: subText, marginTop: '8px' }}>{flashcards.length === 0 ? 'No flashcards yet.' : flashcards[0].q}</p></div>)}
+          {activeNav === 'quizzes' && (<div style={{ ...glass }}><h3 style={{ margin: '0 0 6px 0', color: heading, fontSize: '14px' }}>🧠 Quizzes - {quizTopic || 'No Topic'}</h3><input value={quizTopic} onChange={(e) => setQuizTopic(e.target.value)} placeholder="Enter topic..." style={inputStyle} /><button onClick={() => generateRealQuiz(quizTopic)} style={{ ...primaryBtn, marginTop: '6px', width: '100%' }}>{quizLoading ? 'Generating...' : '⚡ Generate 5 MCQs'}</button>{quizQuestions.length === 0 ? <p style={{ fontSize: '11px', color: subText, marginTop: '8px' }}>No quiz yet.</p> : <div style={{ marginTop: '8px', fontSize: '11px' }}>
+            <ReactMarkdown>{quizQuestions[0].q}</ReactMarkdown>
+          </div>}</div>)}
+          {activeNav === 'flashcards' && (<div style={{ ...glass }}><h3 style={{ margin: '0 0 6px 0', color: heading, fontSize: '14px' }}>📄 Flashcards - {flashTopic || 'No Topic'}</h3><input value={flashTopic} onChange={(e) => setFlashTopic(e.target.value)} placeholder="Enter topic..." style={inputStyle} /><button onClick={() => generateRealFlashcards(flashTopic)} style={{ ...primaryBtn, marginTop: '6px', width: '100%' }}>{flashLoading ? 'Generating...' : '⚡ Generate Flashcards'}</button><div style={{ fontSize: '11px', color: subText, marginTop: '8px' }}>{flashcards.length === 0 ? 'No flashcards yet.' : <ReactMarkdown>{flashcards[0].q}</ReactMarkdown>}</div></div>)}
           {activeNav === 'goals' && (<div style={{ ...glass }}><h3 style={{ margin: '0 0 6px 0', color: heading, fontSize: '14px' }}>🎯 Goals</h3><div style={{ display: 'flex', gap: '6px' }}><input value={newGoal} onChange={(e) => setNewGoal(e.target.value)} placeholder="Add a new goal..." style={{ ...inputStyle, flex: 1, marginTop: 0 }} /><button onClick={() => { if (newGoal.trim()) { setGoals([...goals, { text: newGoal, done: false }]); setNewGoal(''); } }} style={primaryBtn}>Add</button></div>{goals.map((g, i) => <div key={i} onClick={() => setGoals(goals.map((x, xi) => xi === i ? { ...x, done: !x.done } : x))} style={{ display: 'flex', gap: '6px', alignItems: 'center', marginTop: '6px', fontSize: '11px', cursor: 'pointer', textDecoration: g.done ? 'line-through' : 'none' }}><span>{g.done ? '✅' : '⬜'}</span> {g.text}</div>)}</div>)}
           
           {activeNav === 'professional' && (
@@ -665,7 +820,45 @@ export default function Home() {
               {professionalMessages.length > 0 && (
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', padding: '4px 0' }}>
                   {professionalMessages.map((m, i) => (
-                    <div key={i}>{m.type === 'user' ? <div style={{ background: purple, color: '#fff', padding: '8px 12px', borderRadius: '14px 14px 4px 14px', maxWidth: '80%', marginLeft: 'auto', fontSize: '12px' }}>{m.text}</div> : <div style={{ background: 'rgba(139,92,246,0.12)', border: `1px solid ${cardBorder}`, padding: '12px', borderRadius: '12px', fontSize: '12px', lineHeight: '1.5', whiteSpace: 'pre-wrap' }}><div style={{ fontWeight: '800', color: heading, marginBottom: '4px' }}>✨ Cramnix AI • Professional Assistant</div>{m.text}</div>}</div>
+                    <div key={i}>{m.type === 'user' ? <div style={{ background: purple, color: '#fff', padding: '8px 12px', borderRadius: '14px 14px 4px 14px', maxWidth: '80%', marginLeft: 'auto', fontSize: '12px' }}>{m.text}</div> : <div style={{ background: 'rgba(139,92,246,0.12)', border: `1px solid ${cardBorder}`, padding: '12px', borderRadius: '12px', fontSize: '12px', lineHeight: '1.5' }}><div style={{ fontWeight: '800', color: heading, marginBottom: '4px' }}>✨ Cramnix AI • Professional Assistant</div>
+                      <ReactMarkdown
+                        components={{
+                          code({ node, inline, className, children, ...props }) {
+                            const codeString = String(children).replace(/\n$/, '');
+                            if (inline) {
+                              return <code className="bg-purple-950 px-1 py-0.5 rounded text-purple-200 text-xs font-mono" {...props}>{children}</code>;
+                            }
+                            return (
+                              <div className="relative my-3 rounded-lg overflow-hidden border border-purple-800/60 bg-slate-950">
+                                <div className="flex items-center justify-between px-4 py-1.5 bg-purple-950/80 text-xs text-purple-300 border-b border-purple-800/40">
+                                  <span>Code Snippet</span>
+                                  <button
+                                    onClick={() => {
+                                      navigator.clipboard.writeText(codeString);
+                                      alert('Code copied to clipboard!');
+                                    }}
+                                    className="flex items-center gap-1 bg-purple-600 hover:bg-purple-500 text-white px-2 py-0.5 rounded text-[11px] transition-colors cursor-pointer font-bold"
+                                  >
+                                    📋 Copy
+                                  </button>
+                                </div>
+                                <pre className="p-4 overflow-x-auto text-xs text-purple-100 font-mono">
+                                  <code {...props}>{children}</code>
+                                </pre>
+                              </div>
+                            );
+                          },
+                          p: ({ children }) => <p className="mb-2">{children}</p>,
+                          ul: ({ children }) => <ul className="list-disc pl-5 mb-2 space-y-1">{children}</ul>,
+                          ol: ({ children }) => <ol className="list-decimal pl-5 mb-2 space-y-1">{children}</ol>,
+                          li: ({ children }) => <li className="mb-1">{children}</li>,
+                          h3: ({ children }) => <h3 className="text-base font-bold text-purple-200 mt-3 mb-1">{children}</h3>,
+                          h4: ({ children }) => <h4 className="text-sm font-semibold text-purple-300 mt-2 mb-1">{children}</h4>,
+                        }}
+                      >
+                        {m.text}
+                      </ReactMarkdown>
+                    </div>}</div>
                   ))}
                 </div>
               )}

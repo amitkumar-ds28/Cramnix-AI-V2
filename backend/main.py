@@ -54,6 +54,11 @@ def read_root():
     return {"message": "Cramnix AI FastAPI Backend is running successfully!"}
 
 
+@app.get("/health")
+def health_check():
+    return {"status": "ok"}
+
+
 @app.post("/api/generate")
 async def generate_ai_content(data: PromptRequest):
     api_key = (data.api_key or os.getenv("GEMINI_API_KEY") or "").strip()
@@ -67,19 +72,14 @@ async def generate_ai_content(data: PromptRequest):
     if not prompt:
         raise HTTPException(status_code=400, detail="Prompt cannot be empty.")
 
-    max_retries = 2
-    delay = 1.0
-
-    for attempt in range(max_retries):
-        try:
-            text = await asyncio.to_thread(
-                _call_gemini, api_key, prompt, data.system_instruction
-            )
-            return {"response": text}
-        except Exception as e:
-            error_message = str(e)
-            if attempt < max_retries - 1:
-                await asyncio.sleep(delay)
-                delay *= 2
-                continue
-            raise HTTPException(status_code=500, detail=error_message)
+    try:
+        text = await asyncio.to_thread(
+            _call_gemini, api_key, prompt, data.system_instruction
+        )
+        return {"response": text}
+    except HTTPException:
+        raise
+    except Exception as e:
+        err_msg = f"{type(e).__name__}: {str(e)}"
+        print("GEMINI ERROR:", err_msg, flush=True)
+        raise HTTPException(status_code=500, detail=err_msg)

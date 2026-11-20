@@ -184,24 +184,55 @@ export default function Home() {
     if (topic.toLowerCase() === 'general') { alert('Please enter a real topic, not General.'); return; }
     setQuizLoading(true); setQuizQuestions([]); setCurrentQ(0); setSelectedQuiz(null);
     try {
-      const res = await fetch('https://cramnix-ai-v2.onrender.com/api/generate', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ prompt: `Create 5 multiple choice questions for topic: ${topic}. Format each as Q: question | A) opt1 | B) opt2 | C) opt3 | D) opt4 | Answer: X. Keep it in English only.`, api_key: apiSaved && apiKey.trim() ? apiKey.trim() : null }) });
-      const data = await res.json();
-      if (res.ok && data.response && !data.response.includes('429')) { setQuizQuestions([{ q: data.response, opts: [], ans: -1 }]); setQuizTopic(topic); }
-      else alert('AI is busy. Please try again after some time.');
-    } catch (e) { alert('Connection error. Try again.'); }
+      const res = await fetch('https://cramnix-ai-v2.onrender.com/api/generate', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          prompt: `Create 5 multiple choice questions for topic: ${topic}. Format each as Q: question | A) opt1 | B) opt2 | C) opt3 | D) opt4 | Answer: X. Keep it in English only.`,
+          api_key: apiSaved && apiKey.trim() ? apiKey.trim() : null
+        })
+      });
+      const text = await res.text();
+      let data = {};
+      try { data = JSON.parse(text); } catch { data = { detail: text }; }
+      if (res.ok && data.response && !data.response.includes('429')) {
+        setQuizQuestions([{ q: data.response, opts: [], ans: -1 }]);
+        setQuizTopic(topic);
+      } else {
+        alert(`Error (${res.status}): ${data.detail || data.response || 'Failed to generate quiz.'}`);
+      }
+    } catch (e) {
+      alert(`Fetch error: ${e?.message || String(e)}`);
+    }
     setQuizLoading(false);
   };
+
   const generateRealFlashcards = async (topicInput) => {
     const topic = (topicInput || flashTopic || chatPrompt || '').trim();
     if (!topic) { alert('Please enter a topic first.'); return; }
     if (topic.toLowerCase() === 'general') { alert('Please enter a real topic, not General.'); return; }
     setFlashLoading(true); setFlashcards([]);
     try {
-      const res = await fetch('https://cramnix-ai-v2.onrender.com/api/generate', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ prompt: `Create 6 flashcards for topic: ${topic}. Each flashcard: Question and Answer. Keep it in English only.`, api_key: apiSaved && apiKey.trim() ? apiKey.trim() : null }) });
-      const data = await res.json();
-      if (res.ok && data.response && !data.response.includes('429')) { setFlashcards([{ q: data.response, a: 'AI Generated Flashcards' }]); setFlashTopic(topic); }
-      else alert('AI is busy. Please try again after some time.');
-    } catch (e) { alert('Connection error. Try again.'); }
+      const res = await fetch('https://cramnix-ai-v2.onrender.com/api/generate', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          prompt: `Create 6 flashcards for topic: ${topic}. Each flashcard: Question and Answer. Keep it in English only.`,
+          api_key: apiSaved && apiKey.trim() ? apiKey.trim() : null
+        })
+      });
+      const text = await res.text();
+      let data = {};
+      try { data = JSON.parse(text); } catch { data = { detail: text }; }
+      if (res.ok && data.response && !data.response.includes('429')) {
+        setFlashcards([{ q: data.response, a: 'AI Generated Flashcards' }]);
+        setFlashTopic(topic);
+      } else {
+        alert(`Error (${res.status}): ${data.detail || data.response || 'Failed to generate flashcards.'}`);
+      }
+    } catch (e) {
+      alert(`Fetch error: ${e?.message || String(e)}`);
+    }
     setFlashLoading(false);
   };
 
@@ -229,7 +260,12 @@ export default function Home() {
     else if (activeNav === 'chatpdf') setMsgs = setPdfMessages;
     else if (activeNav === 'professional') setMsgs = setProfessionalMessages;
     else setMsgs = setDashboardMessages;
-    if (!apiSaved && requestCount >= 4) { const msg = 'Free limit reached (0/4). You will get 4 more tomorrow at 12 AM. Or add your API Key for unlimited use.'; setResponse(msg); setMsgs(prev => [...prev, { type: 'user', text: qText }, { type: 'ai', text: msg }]); return; }
+    if (!apiSaved && requestCount >= 4) {
+      const msg = 'Free limit reached (0/4). You will get 4 more tomorrow at 12 AM. Or add your API Key for unlimited use.';
+      setResponse(msg);
+      setMsgs(prev => [...prev, { type: 'user', text: qText }, { type: 'ai', text: msg }]);
+      return;
+    }
     setLoading(true); setResponse('');
     if (qText) setMsgs(prev => [...prev, { type: 'user', text: qText }]);
     else if (fileToUse) setMsgs(prev => [...prev, { type: 'user', text: `📄 ${fileToUse.name} - Please explain this file` }]);
@@ -244,22 +280,49 @@ export default function Home() {
     }
     const finalPrompt = `[Language: English] ${fileContext} ${tabPrefix}${qText || 'Analyze the uploaded file.'}`;
     try {
-      const res = await fetch('https://cramnix-ai-v2.onrender.com/api/generate', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ prompt: finalPrompt, api_key: apiSaved && apiKey.trim() ? apiKey.trim() : null }) });
-      const data = await res.json();
-      const raw = JSON.stringify(data);
-      if (raw.includes('429') || raw.includes('RESOURCE_EXHAUSTED') || raw.includes('Quota exceeded')) {
-        const friendly = '⚠️ AI is busy right now (Daily free limit reached).\n\nPlease try again after 15-20 minutes.\n\nTip: Add your own Gemini API Key in Settings for unlimited use.';
-        setResponse(friendly); setMsgs(prev => [...prev, { type: 'ai', text: friendly }]); setLoading(false); return;
+      const res = await fetch('https://cramnix-ai-v2.onrender.com/api/generate', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          prompt: finalPrompt,
+          api_key: apiSaved && apiKey.trim() ? apiKey.trim() : null
+        })
+      });
+      const rawText = await res.text();
+      let data = {};
+      try { data = JSON.parse(rawText); } catch { data = { detail: rawText }; }
+
+      if (rawText.includes('429') || rawText.includes('RESOURCE_EXHAUSTED') || rawText.includes('Quota exceeded')) {
+        const friendly = `⚠️ AI quota/rate limit message (${res.status}): ${data.detail || rawText}`;
+        setResponse(friendly);
+        setMsgs(prev => [...prev, { type: 'ai', text: friendly }]);
+        setLoading(false);
+        return;
       }
-      if (res.ok) {
+      if (res.ok && data.response) {
         setResponse(data.response);
         setMsgs(prev => [...prev, { type: 'ai', text: data.response }]);
-        if (!apiSaved) { const nc = requestCount + 1; setRequestCount(nc); localStorage.setItem('cramnix_count', nc.toString()); localStorage.setItem('cramnix_date', new Date().toDateString()); }
+        if (!apiSaved) {
+          const nc = requestCount + 1;
+          setRequestCount(nc);
+          localStorage.setItem('cramnix_count', nc.toString());
+          localStorage.setItem('cramnix_date', new Date().toDateString());
+        }
         const chatTitle = qText ? qText.slice(0, 18) + '...' : (fileToUse ? fileToUse.name : 'New Chat');
         setChats(chats.map(c => c.id === currentChatId && c.title === 'New Chat' ? { ...c, title: chatTitle } : c));
-      } else { const friendly = '⚠️ Something went wrong. Please try again in a few minutes.'; setResponse(friendly); setMsgs(prev => [...prev, { type: 'ai', text: friendly }]); }
-    } catch (err) { const msg = 'Connection Error. Please check your internet and try again.'; setResponse(msg); setMsgs(prev => [...prev, { type: 'ai', text: msg }]); }
-    finally { setLoading(false); }
+      } else {
+        const errDetail = data.detail || rawText || `HTTP ${res.status}`;
+        const friendly = `⚠️ Backend Error (${res.status}): ${errDetail}`;
+        setResponse(friendly);
+        setMsgs(prev => [...prev, { type: 'ai', text: friendly }]);
+      }
+    } catch (err) {
+      const msg = `⚠️ Network/Request Error: ${err?.message || String(err)}`;
+      setResponse(msg);
+      setMsgs(prev => [...prev, { type: 'ai', text: msg }]);
+    } finally {
+      setLoading(false);
+    }
   };
 
   const handleGenerateStudyPlan = async (e) => {
@@ -269,24 +332,42 @@ export default function Home() {
     setLoading(true);
     setStudentMessages(prev => [...prev, { type: 'user', text: `📝 Study Plan for ${studyTopic} - ${studyDays} - ${studyLevel} - ${studyHours}` }]);
     try {
-      const res = await fetch('https://cramnix-ai-v2.onrender.com/api/generate', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ prompt: fullPrompt, api_key: apiSaved && apiKey.trim() ? apiKey.trim() : null }) });
-      const data = await res.json();
-      const raw = JSON.stringify(data);
-      if (raw.includes('429') || raw.includes('RESOURCE_EXHAUSTED')) {
-        const friendly = '⚠️ AI is busy right now (Daily free limit reached).\n\nPlease try again after 15-20 minutes.';
-        setResponse(friendly); setStudentMessages(prev => [...prev, { type: 'ai', text: friendly }]); setLoading(false); return;
+      const res = await fetch('https://cramnix-ai-v2.onrender.com/api/generate', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          prompt: fullPrompt,
+          api_key: apiSaved && apiKey.trim() ? apiKey.trim() : null
+        })
+      });
+      const rawText = await res.text();
+      let data = {};
+      try { data = JSON.parse(rawText); } catch { data = { detail: rawText }; }
+
+      if (rawText.includes('429') || rawText.includes('RESOURCE_EXHAUSTED')) {
+        const friendly = `⚠️ AI quota/rate limit message (${res.status}): ${data.detail || rawText}`;
+        setResponse(friendly);
+        setStudentMessages(prev => [...prev, { type: 'ai', text: friendly }]);
+        setLoading(false);
+        return;
       }
-      if (res.ok) {
+      if (res.ok && data.response) {
         setResponse(data.response);
         setStudentMessages(prev => [...prev, { type: 'ai', text: data.response }]);
-        if (!apiSaved) { const nc = requestCount + 1; setRequestCount(nc); localStorage.setItem('cramnix_count', nc.toString()); localStorage.setItem('cramnix_date', new Date().toDateString()); }
+        if (!apiSaved) {
+          const nc = requestCount + 1;
+          setRequestCount(nc);
+          localStorage.setItem('cramnix_count', nc.toString());
+          localStorage.setItem('cramnix_date', new Date().toDateString());
+        }
       } else {
-        const friendly = '⚠️ Something went wrong. Please try again in a few minutes.';
+        const errDetail = data.detail || rawText || `HTTP ${res.status}`;
+        const friendly = `⚠️ Backend Error (${res.status}): ${errDetail}`;
         setResponse(friendly);
         setStudentMessages(prev => [...prev, { type: 'ai', text: friendly }]);
       }
     } catch (err) {
-      const msg = 'Connection Error. Please check your internet and try again.';
+      const msg = `⚠️ Network/Request Error: ${err?.message || String(err)}`;
       setResponse(msg);
       setStudentMessages(prev => [...prev, { type: 'ai', text: msg }]);
     }
@@ -783,85 +864,6 @@ export default function Home() {
                   </ReactMarkdown>
                 </div>}</div>
               ))}
-            </div>
-          )}
-
-          {activeNav === 'quizzes' && (<div style={{ ...glass }}><h3 style={{ margin: '0 0 6px 0', color: heading, fontSize: '14px' }}>🧠 Quizzes - {quizTopic || 'No Topic'}</h3><input value={quizTopic} onChange={(e) => setQuizTopic(e.target.value)} placeholder="Enter topic..." style={inputStyle} /><button onClick={() => generateRealQuiz(quizTopic)} style={{ ...primaryBtn, marginTop: '6px', width: '100%' }}>{quizLoading ? 'Generating...' : '⚡ Generate 5 MCQs'}</button>{quizQuestions.length === 0 ? <p style={{ fontSize: '11px', color: subText, marginTop: '8px' }}>No quiz yet.</p> : <div style={{ marginTop: '8px', fontSize: '11px' }}>
-            <ReactMarkdown>{quizQuestions[0].q}</ReactMarkdown>
-          </div>}</div>)}
-          {activeNav === 'flashcards' && (<div style={{ ...glass }}><h3 style={{ margin: '0 0 6px 0', color: heading, fontSize: '14px' }}>📄 Flashcards - {flashTopic || 'No Topic'}</h3><input value={flashTopic} onChange={(e) => setFlashTopic(e.target.value)} placeholder="Enter topic..." style={inputStyle} /><button onClick={() => generateRealFlashcards(flashTopic)} style={{ ...primaryBtn, marginTop: '6px', width: '100%' }}>{flashLoading ? 'Generating...' : '⚡ Generate Flashcards'}</button><div style={{ fontSize: '11px', color: subText, marginTop: '8px' }}>{flashcards.length === 0 ? 'No flashcards yet.' : <ReactMarkdown>{flashcards[0].q}</ReactMarkdown>}</div></div>)}
-          {activeNav === 'goals' && (<div style={{ ...glass }}><h3 style={{ margin: '0 0 6px 0', color: heading, fontSize: '14px' }}>🎯 Goals</h3><div style={{ display: 'flex', gap: '6px' }}><input value={newGoal} onChange={(e) => setNewGoal(e.target.value)} placeholder="Add a new goal..." style={{ ...inputStyle, flex: 1, marginTop: 0 }} /><button onClick={() => { if (newGoal.trim()) { setGoals([...goals, { text: newGoal, done: false }]); setNewGoal(''); } }} style={primaryBtn}>Add</button></div>{goals.map((g, i) => <div key={i} onClick={() => setGoals(goals.map((x, xi) => xi === i ? { ...x, done: !x.done } : x))} style={{ display: 'flex', gap: '6px', alignItems: 'center', marginTop: '6px', fontSize: '11px', cursor: 'pointer', textDecoration: g.done ? 'line-through' : 'none' }}><span>{g.done ? '✅' : '⬜'}</span> {g.text}</div>)}</div>)}
-          
-          {activeNav === 'professional' && (
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-              <div style={{ display: 'flex', gap: '6px', marginBottom: '4px' }}>
-                <button onClick={() => setProfessionalTab('meeting')} style={{ background: professionalTab === 'meeting' ? purple : cardBg, border: `1px solid ${cardBorder}`, color: '#fff', padding: '5px 10px', borderRadius: '999px', cursor: 'pointer', fontSize: '11px', fontWeight: professionalTab === 'meeting' ? '800' : '500' }}>📝 Meeting Notes</button>
-                <button onClick={() => setProfessionalTab('email')} style={{ background: professionalTab === 'email' ? purple : cardBg, border: `1px solid ${cardBorder}`, color: '#fff', padding: '5px 10px', borderRadius: '999px', cursor: 'pointer', fontSize: '11px', fontWeight: professionalTab === 'email' ? '800' : '500' }}>✉️ Email Generator</button>
-              </div>
-
-              {professionalTab === 'meeting' && (
-                <div style={{ ...glass }}>
-                  <h3 style={{ margin: '0 0 3px 0', color: heading, fontSize: '13px' }}>📝 Meeting Notes Extractor</h3>
-                  <p style={{ fontSize: '10px', color: subText, margin: '0 0 6px 0' }}>Paste transcript below.</p>
-                  <textarea rows="3" value={meetingPrompt} onChange={(e) => setMeetingPrompt(e.target.value)} placeholder="Paste notes..." style={inputStyle} />
-                  <button onClick={(e) => handleGenerate(e, `Extract professional meeting summary and action items from these notes: ${meetingPrompt}`, null, false)} style={{ ...primaryBtn, width: '100%', marginTop: '8px' }}>{loading ? 'Extracting...' : '⚡ Extract Summary'}</button>
-                </div>
-              )}
-
-              {professionalTab === 'email' && (
-                <div style={{ ...glass }}>
-                  <h3 style={{ margin: '0 0 3px 0', color: heading, fontSize: '13px' }}>✉️ Email Generator</h3>
-                  <p style={{ fontSize: '10px', color: subText, margin: '0 0 6px 0' }}>What is this email about?</p>
-                  <input value={emailPrompt} onChange={(e) => setEmailPrompt(e.target.value)} placeholder="e.g. Leave application..." style={inputStyle} />
-                  <button onClick={(e) => handleGenerate(e, `Draft a professional email for: ${emailPrompt}`, null, false)} style={{ ...primaryBtn, width: '100%', marginTop: '8px' }}>{loading ? 'Drafting...' : '✨ Draft Email'}</button>
-                </div>
-              )}
-
-              {professionalMessages.length > 0 && (
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', padding: '4px 0' }}>
-                  {professionalMessages.map((m, i) => (
-                    <div key={i}>{m.type === 'user' ? <div style={{ background: purple, color: '#fff', padding: '8px 12px', borderRadius: '14px 14px 4px 14px', maxWidth: '80%', marginLeft: 'auto', fontSize: '12px' }}>{m.text}</div> : <div style={{ background: 'rgba(139,92,246,0.12)', border: `1px solid ${cardBorder}`, padding: '12px', borderRadius: '12px', fontSize: '12px', lineHeight: '1.5' }}><div style={{ fontWeight: '800', color: heading, marginBottom: '4px' }}>✨ Cramnix AI • Professional Assistant</div>
-                      <ReactMarkdown
-                        components={{
-                          code({ node, inline, className, children, ...props }) {
-                            const codeString = String(children).replace(/\n$/, '');
-                            if (inline) {
-                              return <code className="bg-purple-950 px-1 py-0.5 rounded text-purple-200 text-xs font-mono" {...props}>{children}</code>;
-                            }
-                            return (
-                              <div className="relative my-3 rounded-lg overflow-hidden border border-purple-800/60 bg-slate-950">
-                                <div className="flex items-center justify-between px-4 py-1.5 bg-purple-950/80 text-xs text-purple-300 border-b border-purple-800/40">
-                                  <span>Code Snippet</span>
-                                  <button
-                                    onClick={() => {
-                                      navigator.clipboard.writeText(codeString);
-                                      alert('Code copied to clipboard!');
-                                    }}
-                                    className="flex items-center gap-1 bg-purple-600 hover:bg-purple-500 text-white px-2 py-0.5 rounded text-[11px] transition-colors cursor-pointer font-bold"
-                                  >
-                                    📋 Copy
-                                  </button>
-                                </div>
-                                <pre className="p-4 overflow-x-auto text-xs text-purple-100 font-mono">
-                                  <code {...props}>{children}</code>
-                                </pre>
-                              </div>
-                            );
-                          },
-                          p: ({ children }) => <p className="mb-2">{children}</p>,
-                          ul: ({ children }) => <ul className="list-disc pl-5 mb-2 space-y-1">{children}</ul>,
-                          ol: ({ children }) => <ol className="list-decimal pl-5 mb-2 space-y-1">{children}</ol>,
-                          li: ({ children }) => <li className="mb-1">{children}</li>,
-                          h3: ({ children }) => <h3 className="text-base font-bold text-purple-200 mt-3 mb-1">{children}</h3>,
-                          h4: ({ children }) => <h4 className="text-sm font-semibold text-purple-300 mt-2 mb-1">{children}</h4>,
-                        }}
-                      >
-                        {m.text}
-                      </ReactMarkdown>
-                    </div>}</div>
-                  ))}
-                </div>
-              )}
             </div>
           )}
 

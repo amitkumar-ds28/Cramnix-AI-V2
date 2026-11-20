@@ -399,7 +399,8 @@ export default function Home() {
   const handleFileUpload = (e) => {
     const file = e.target.files[0];
     if (file) {
-      const newFile = { id: Date.now().toString(), name: file.name, type: file.type.includes('image') || file.name.match(/\.(jpg|jpeg|png)/i) ? 'Image' : 'PDF', size: file.size > 1024*1024 ? (file.size / (1024*1024)).toFixed(1) + ' MB' : (file.size / 1024).toFixed(0) + ' KB', date: new Date().toLocaleDateString('en-US', { day: 'numeric', month: 'short' }) };
+      const isImage = file.type.includes('image') || /\.(jpg|jpeg|png)$/i.test(file.name);
+      const newFile = { id: Date.now().toString(), name: file.name, type: isImage ? 'Image' : 'PDF', size: file.size > 1024*1024 ? (file.size / (1024*1024)).toFixed(1) + ' MB' : (file.size / 1024).toFixed(0) + ' KB', date: new Date().toLocaleDateString('en-US', { day: 'numeric', month: 'short' }) };
       const updated = [newFile, ...libraryFiles];
       setLibraryFiles(updated);
       localStorage.setItem('cramnix_library', JSON.stringify(updated));

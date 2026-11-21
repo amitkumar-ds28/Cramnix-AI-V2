@@ -1,11 +1,145 @@
 "use client";
 import { useState, useEffect, useRef } from 'react';
 
+const API_BASE_URL = 'https://cramnix-ai-v2.onrender.com';
+
 const DAILY_LIMIT_MSG =
   'Free daily limit (20 requests) has been reached. Please use your own Gemini API key in Settings to continue.';
 
 const USER_FOUR_LIMIT_MSG =
   'Your free limit (4 requests) has been reached. Please add your own Gemini API key in Settings to continue.';
+
+function cleanInlineMarkdown(line) {
+  return String(line || '')
+    .replace(/^#{1,6}\s*/, '')
+    .replace(/^\s*[-*•]\s+/, '• ')
+    .replace(/\*\*(.*?)\*\*/g, '$1')
+    .replace(/__(.*?)__/g, '$1')
+    .replace(/\*(.*?)\*/g, '$1')
+    .replace(/_(.*?)_/g, '$1')
+    .replace(/`([^`]+)`/g, '$1');
+}
+
+function CodeBlockBox({ language, code }) {
+  const [copied, setCopied] = useState(false);
+
+  const handleCopy = async () => {
+    try {
+      await navigator.clipboard.writeText(code);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 1800);
+    } catch {
+      try {
+        const ta = document.createElement('textarea');
+        ta.value = code;
+        document.body.appendChild(ta);
+        ta.select();
+        document.execCommand('copy');
+        document.body.removeChild(ta);
+        setCopied(true);
+        setTimeout(() => setCopied(false), 1800);
+      } catch {
+        setCopied(false);
+      }
+    }
+  };
+
+  return (
+    <div
+      style={{
+        margin: '10px 0',
+        borderRadius: '12px',
+        overflow: 'hidden',
+        border: '1px solid rgba(139, 92, 246, 0.35)',
+        background: '#090714',
+      }}
+    >
+      <div
+        style={{
+          display: 'flex',
+          justifyContent: 'space-between',
+          alignItems: 'center',
+          padding: '6px 12px',
+          background: 'rgba(139, 92, 246, 0.16)',
+          borderBottom: '1px solid rgba(255, 255, 255, 0.1)',
+          fontSize: '11px',
+          color: '#DDD6FE',
+        }}
+      >
+        <span style={{ fontWeight: '700', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
+          {language || 'code'}
+        </span>
+        <button
+          type="button"
+          onClick={handleCopy}
+          style={{
+            background: copied ? '#22C55E' : 'rgba(255, 255, 255, 0.12)',
+            color: '#FFFFFF',
+            border: '1px solid rgba(255, 255, 255, 0.18)',
+            borderRadius: '6px',
+            padding: '3px 10px',
+            fontSize: '11px',
+            fontWeight: '700',
+            cursor: 'pointer',
+          }}
+        >
+          {copied ? 'Copied ✓' : 'Copy'}
+        </button>
+      </div>
+      <pre
+        style={{
+          margin: 0,
+          padding: '12px',
+          overflowX: 'auto',
+          fontSize: '12px',
+          lineHeight: '1.55',
+          color: '#F5F3FF',
+          fontFamily: 'ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace',
+        }}
+      >
+        <code>{code}</code>
+      </pre>
+    </div>
+  );
+}
+
+function FormattedAIResponse({ content }) {
+  if (!content) return null;
+
+  const normalized = String(content).replace(/\r\n/g, '\n');
+  const parts = normalized.split(/(```[\s\S]*?```)/g);
+
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: '4px', fontSize: '12.5px', lineHeight: '1.55', color: '#EDE9FE' }}>
+      {parts.map((part, idx) => {
+        if (!part) return null;
+
+        if (part.startsWith('```') && part.endsWith('```')) {
+          const inner = part.slice(3, -3).replace(/^\n+/, '').replace(/\n+$/, '');
+          const firstNewline = inner.indexOf('\n');
+          const firstLine = firstNewline > -1 ? inner.slice(0, firstNewline).trim() : '';
+          const hasLang = firstNewline > -1 && firstLine.length > 0 && !/\s/.test(firstLine);
+          const language = hasLang ? firstLine : 'code';
+          const code = hasLang ? inner.slice(firstNewline + 1) : inner;
+
+          return <CodeBlockBox key={idx} language={language} code={code} />;
+        }
+
+        return part.split('\n').map((rawLine, lineIdx) => {
+          const cleaned = cleanInlineMarkdown(rawLine);
+          if (!cleaned.trim()) {
+            return <div key={`${idx}-${lineIdx}`} style={{ height: '6px' }} />;
+          }
+          return (
+            <div key={`${idx}-${lineIdx}`} style={{ wordBreak: 'break-word' }}>
+              {cleaned}
+            </div>
+          );
+        });
+      })}
+    </div>
+  );
+}
 
 export default function Home() {
   const [isLoggedIn, setIsLoggedIn] = useState(false);
@@ -65,7 +199,6 @@ export default function Home() {
   const [isSpeaking, setIsSpeaking] = useState(false);
   const [shareMsg, setShareMsg] = useState('');
 
-  // Right Panel & Mobile Menu Toggle States
   const [isRightPanelOpen, setIsRightPanelOpen] = useState(false);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
 
@@ -142,12 +275,92 @@ export default function Home() {
     return stored.trim() ? stored.trim() : null;
   };
 
+  const buildSystemInstruction = () => {
+    const langLabel = selectedLanguage || 'English';
+    return (
+      `You are Cramnix AI, a clear, helpful, and thorough learning and coding assistant. ` +
+      `Respond in ${langLabel} (matching the user's language and prompt style naturally). ` +
+      `Respect any explicit length or point count requested by the user; when no strict short limit is requested, give a clear, complete, and well-explained answer. ` +
+      `Always put code inside fenced code blocks (\`\`\`language ... \`\`\`) with complete, runnable code, and keep explanations outside code blocks.`
+    );
+  };
+
+  const requestBackendWithRetry = async (promptText) => {
+    const activeKey = getActiveApiKey();
+    const sysInstruction = buildSystemInstruction();
+    const maxAttempts = 25;
+
+    for (let attempt = 0; attempt < maxAttempts; attempt++) {
+      try {
+        const res = await fetch(`${API_BASE_URL}/api/generate`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            prompt: promptText,
+            api_key: activeKey,
+            system_instruction: sysInstruction,
+          }),
+        });
+
+        const data = await res.json().catch(() => ({}));
+
+        if (res.ok && typeof data.response === 'string' && data.response.trim()) {
+          return { ok: true, text: data.response };
+        }
+
+        if (res.status === 400 || res.status === 401 || res.status === 429) {
+          const detailMsg =
+            typeof data?.detail === 'string' && data.detail.trim()
+              ? data.detail.trim()
+              : res.status === 429
+              ? DAILY_LIMIT_MSG
+              : 'Please check your Gemini API key in Settings.';
+          return { ok: false, text: detailMsg };
+        }
+
+        if (attempt < maxAttempts - 1) {
+          await new Promise((resolve) => setTimeout(resolve, 4000));
+          continue;
+        }
+
+        const fallbackDetail =
+          typeof data?.detail === 'string' && data.detail.trim()
+            ? data.detail.trim()
+            : 'Unable to generate response right now. Please try again or use your own Gemini API key in Settings.';
+        return { ok: false, text: fallbackDetail };
+      } catch {
+        if (attempt < maxAttempts - 1) {
+          await new Promise((resolve) => setTimeout(resolve, 4000));
+          continue;
+        }
+        return {
+          ok: false,
+          text: 'Connection error while waiting for response. Please check your internet and try again.',
+        };
+      }
+    }
+
+    return {
+      ok: false,
+      text: 'Unable to generate response right now. Please try again or use your own Gemini API key in Settings.',
+    };
+  };
+
+  const incrementUsageCount = () => {
+    if (!apiSaved) {
+      const nc = requestCount + 1;
+      setRequestCount(nc);
+      localStorage.setItem('cramnix_count', nc.toString());
+      localStorage.setItem('cramnix_date', new Date().toDateString());
+    }
+  };
+
   const handleShare = async () => {
     const textToShare = response || chatPrompt || 'Check out Cramnix AI - My Study App';
     try {
       if (navigator.share) { await navigator.share({ title: 'Cramnix AI Answer', text: textToShare, url: window.location.href }); setShareMsg('Shared successfully!'); }
       else { await navigator.clipboard.writeText(textToShare); setShareMsg('Copied to clipboard! You can paste anywhere.'); }
-    } catch (e) { try { await navigator.clipboard.writeText(textToShare); setShareMsg('Copied to clipboard!'); } catch { setShareMsg('Copy failed.'); } }
+    } catch { try { await navigator.clipboard.writeText(textToShare); setShareMsg('Copied to clipboard!'); } catch { setShareMsg('Copy failed.'); } }
     setTimeout(() => setShareMsg(''), 3000);
   };
   const handleExport = () => {
@@ -186,7 +399,8 @@ export default function Home() {
     if (!text) { alert('No answer to read yet.'); return; }
     if (!('speechSynthesis' in window)) { alert('Read aloud not supported.'); return; }
     window.speechSynthesis.cancel();
-    const u = new SpeechSynthesisUtterance(text); u.lang = 'en-US'; u.rate = 1;
+    const cleanedSpeech = cleanInlineMarkdown(text).replace(/```[\s\S]*?```/g, ' Code block omitted. ');
+    const u = new SpeechSynthesisUtterance(cleanedSpeech); u.lang = 'en-US'; u.rate = 1;
     u.onstart = () => setIsSpeaking(true); u.onend = () => setIsSpeaking(false);
     window.speechSynthesis.speak(u);
   };
@@ -199,30 +413,16 @@ export default function Home() {
     if (topic.toLowerCase() === 'general') { alert('Please enter a real topic, not General.'); return; }
     if (!apiSaved && requestCount >= 4) { alert(USER_FOUR_LIMIT_MSG); return; }
     setQuizLoading(true); setQuizQuestions([]); setCurrentQ(0); setSelectedQuiz(null);
-    try {
-      const res = await fetch('https://cramnix-ai-v2.onrender.com/api/generate', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          prompt: `Create 5 multiple choice questions for topic: ${topic}. Format each as Q: question | A) opt1 | B) opt2 | C) opt3 | D) opt4 | Answer: X. Keep it in English only.`,
-          api_key: getActiveApiKey(),
-        }),
-      });
-      const data = await res.json().catch(() => ({}));
-      if (res.ok && data.response) {
-        setQuizQuestions([{ q: data.response, opts: [], ans: -1 }]);
-        setQuizTopic(topic);
-        if (!apiSaved) {
-          const nc = requestCount + 1;
-          setRequestCount(nc);
-          localStorage.setItem('cramnix_count', nc.toString());
-          localStorage.setItem('cramnix_date', new Date().toDateString());
-        }
-      } else {
-        alert(data?.detail || DAILY_LIMIT_MSG);
-      }
-    } catch (e) {
-      alert('Connection error while waiting for response. Please try again.');
+
+    const prompt = `Create 5 multiple choice questions for topic: ${topic}. Format each as Q: question | A) opt1 | B) opt2 | C) opt3 | D) opt4 | Answer: X. Respond in ${selectedLanguage}.`;
+    const result = await requestBackendWithRetry(prompt);
+
+    if (result.ok) {
+      setQuizQuestions([{ q: result.text, opts: [], ans: -1 }]);
+      setQuizTopic(topic);
+      incrementUsageCount();
+    } else {
+      alert(result.text || DAILY_LIMIT_MSG);
     }
     setQuizLoading(false);
   };
@@ -233,30 +433,16 @@ export default function Home() {
     if (topic.toLowerCase() === 'general') { alert('Please enter a real topic, not General.'); return; }
     if (!apiSaved && requestCount >= 4) { alert(USER_FOUR_LIMIT_MSG); return; }
     setFlashLoading(true); setFlashcards([]);
-    try {
-      const res = await fetch('https://cramnix-ai-v2.onrender.com/api/generate', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          prompt: `Create 6 flashcards for topic: ${topic}. Each flashcard: Question and Answer. Keep it in English only.`,
-          api_key: getActiveApiKey(),
-        }),
-      });
-      const data = await res.json().catch(() => ({}));
-      if (res.ok && data.response) {
-        setFlashcards([{ q: data.response, a: 'AI Generated Flashcards' }]);
-        setFlashTopic(topic);
-        if (!apiSaved) {
-          const nc = requestCount + 1;
-          setRequestCount(nc);
-          localStorage.setItem('cramnix_count', nc.toString());
-          localStorage.setItem('cramnix_date', new Date().toDateString());
-        }
-      } else {
-        alert(data?.detail || DAILY_LIMIT_MSG);
-      }
-    } catch (e) {
-      alert('Connection error while waiting for response. Please try again.');
+
+    const prompt = `Create 6 flashcards for topic: ${topic}. Each flashcard: Question and Answer. Respond in ${selectedLanguage}.`;
+    const result = await requestBackendWithRetry(prompt);
+
+    if (result.ok) {
+      setFlashcards([{ q: result.text, a: 'AI Generated Flashcards' }]);
+      setFlashTopic(topic);
+      incrementUsageCount();
+    } else {
+      alert(result.text || DAILY_LIMIT_MSG);
     }
     setFlashLoading(false);
   };
@@ -311,51 +497,22 @@ export default function Home() {
     let tabPrefix = '';
     if (isStudent || activeNav === 'student') {
       if (studentTab === 'plan') tabPrefix = 'Create a detailed study plan for: ';
-      if (studentTab === 'notes') tabPrefix = 'Create clean study notes in English for: ';
-      if (studentTab === 'quiz') tabPrefix = 'Create 5 MCQs in English for: ';
-      if (studentTab === 'flashcards') tabPrefix = 'Create flashcards in English for: ';
+      if (studentTab === 'notes') tabPrefix = 'Create clean, thorough study notes for: ';
+      if (studentTab === 'quiz') tabPrefix = 'Create 5 MCQs for: ';
+      if (studentTab === 'flashcards') tabPrefix = 'Create flashcards for: ';
     }
-    const finalPrompt = `[Language: English] ${fileContext} ${tabPrefix}${qText || 'Analyze the uploaded file.'}`;
+    const finalPrompt = `${fileContext ? `${fileContext} ` : ''}${tabPrefix}${qText || 'Analyze the uploaded file.'}`;
 
-    try {
-      const res = await fetch('https://cramnix-ai-v2.onrender.com/api/generate', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          prompt: finalPrompt,
-          api_key: getActiveApiKey(),
-        }),
-      });
-      const data = await res.json().catch(() => ({}));
+    const result = await requestBackendWithRetry(finalPrompt);
+    setResponse(result.text);
+    setMsgs(prev => [...prev, { type: 'ai', text: result.text }]);
 
-      if (res.ok && data.response) {
-        setResponse(data.response);
-        setMsgs(prev => [...prev, { type: 'ai', text: data.response }]);
-        if (!apiSaved) {
-          const nc = requestCount + 1;
-          setRequestCount(nc);
-          localStorage.setItem('cramnix_count', nc.toString());
-          localStorage.setItem('cramnix_date', new Date().toDateString());
-        }
-        const chatTitle = qText ? qText.slice(0, 18) + '...' : (fileToUse ? fileToUse.name : 'New Chat');
-        setChats(chats.map(c => c.id === currentChatId && c.title === 'New Chat' ? { ...c, title: chatTitle } : c));
-      } else {
-        const errMsg =
-          typeof data?.detail === 'string' && data.detail.trim()
-            ? data.detail.trim()
-            : res.status === 429
-            ? DAILY_LIMIT_MSG
-            : 'Unable to generate response right now. Please try again or use your own Gemini API key in Settings.';
-        setResponse(errMsg);
-        setMsgs(prev => [...prev, { type: 'ai', text: errMsg }]);
-      }
-    } catch (err) {
-      const msg = 'Connection Error while waiting for response. Please check your internet and try again.';
-      setResponse(msg);
-      setMsgs(prev => [...prev, { type: 'ai', text: msg }]);
-    } finally {
-      setLoading(false);
+    if (result.ok) {
+      incrementUsageCount();
+      const chatTitle = qText ? qText.slice(0, 18) + '...' : (fileToUse ? fileToUse.name : 'New Chat');
+      setChats(chats.map(c => c.id === currentChatId && c.title === 'New Chat' ? { ...c, title: chatTitle } : c));
     }
+    setLoading(false);
   };
 
   const handleGenerateStudyPlan = async (e) => {
@@ -366,45 +523,17 @@ export default function Home() {
       setStudentMessages(prev => [...prev, { type: 'user', text: `📝 Study Plan for ${studyTopic} - ${studyDays} - ${studyLevel} - ${studyHours}` }, { type: 'ai', text: USER_FOUR_LIMIT_MSG }]);
       return;
     }
-    const fullPrompt = `Create a complete study plan in ENGLISH ONLY for topic: ${studyTopic}. Duration: ${studyDays}. Level: ${studyLevel}. Daily Time: ${studyHours}. Make the plan like this: 1. TODAY'S PLAN - Hour by hour timetable. 2. HOW TO BREAK HARD TOPIC - Easy, Medium, Hard. 3. DAY-WISE PLAN for ${studyDays}. 4. YEAR PLAN. 5. REVISION + QUIZ + FLASHCARDS. 6. MOTIVATION TIP. Keep it simple, clear, and in English only.`;
+    const fullPrompt = `Create a complete study plan for topic: ${studyTopic}. Duration: ${studyDays}. Level: ${studyLevel}. Daily Time: ${studyHours}. Structure it clearly: 1. TODAY'S PLAN - Hour by hour timetable. 2. HOW TO BREAK HARD TOPIC - Easy, Medium, Hard. 3. DAY-WISE PLAN for ${studyDays}. 4. YEAR PLAN. 5. REVISION + QUIZ + FLASHCARDS. 6. MOTIVATION TIP.`;
     setLoading(true);
     setStudentMessages(prev => [...prev, { type: 'user', text: `📝 Study Plan for ${studyTopic} - ${studyDays} - ${studyLevel} - ${studyHours}` }]);
-    try {
-      const res = await fetch('https://cramnix-ai-v2.onrender.com/api/generate', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          prompt: fullPrompt,
-          api_key: getActiveApiKey(),
-        }),
-      });
-      const data = await res.json().catch(() => ({}));
-      if (res.ok && data.response) {
-        setResponse(data.response);
-        setStudentMessages(prev => [...prev, { type: 'ai', text: data.response }]);
-        if (!apiSaved) {
-          const nc = requestCount + 1;
-          setRequestCount(nc);
-          localStorage.setItem('cramnix_count', nc.toString());
-          localStorage.setItem('cramnix_date', new Date().toDateString());
-        }
-      } else {
-        const errMsg =
-          typeof data?.detail === 'string' && data.detail.trim()
-            ? data.detail.trim()
-            : res.status === 429
-            ? DAILY_LIMIT_MSG
-            : 'Unable to generate study plan right now. Please try again or use your own Gemini API key in Settings.';
-        setResponse(errMsg);
-        setStudentMessages(prev => [...prev, { type: 'ai', text: errMsg }]);
-      }
-    } catch (err) {
-      const msg = 'Connection Error while waiting for response. Please check your internet and try again.';
-      setResponse(msg);
-      setStudentMessages(prev => [...prev, { type: 'ai', text: msg }]);
-    } finally {
-      setLoading(false);
+
+    const result = await requestBackendWithRetry(fullPrompt);
+    setResponse(result.text);
+    setStudentMessages(prev => [...prev, { type: 'ai', text: result.text }]);
+    if (result.ok) {
+      incrementUsageCount();
     }
+    setLoading(false);
   };
 
   const handleVoiceInput = (setterFunc) => {
@@ -456,14 +585,14 @@ export default function Home() {
   const askLibraryFile = (file) => {
     setActiveNav('chatpdf');
     setSharedFile({ name: file.name });
-    setChatPrompt(`Explain this file: ${file.name} in simple English`);
+    setChatPrompt(`Explain this file: ${file.name} in simple words`);
     setShareMsg(`Selected ${file.name}. Ask your question below.`);
     setTimeout(() => setShareMsg(''), 3000);
   };
   const notesLibraryFile = (file) => {
     setActiveNav('student');
     setStudentTab('notes');
-    setChatPrompt(`Make clean notes in English for file: ${file.name}`);
+    setChatPrompt(`Make clean notes for file: ${file.name}`);
     setShareMsg(`Making notes for ${file.name}...`);
     setTimeout(() => setShareMsg(''), 3000);
   };
@@ -524,7 +653,6 @@ export default function Home() {
   return (
     <div style={{ display: 'flex', height: '100vh', width: '100vw', background: `radial-gradient(800px 400px at 15% 0%, #2E1A5E 0%, transparent 60%), radial-gradient(700px 400px at 90% 20%, #3B1A6B 0%, transparent 60%), ${bg}`, color: textColor, fontFamily: 'Inter, sans-serif', padding: '10px', gap: '10px', boxSizing: 'border-box', position: 'relative', overflow: 'hidden' }}>
 
-      {/* Responsive Media Query CSS Helper */}
       <style dangerouslySetInnerHTML={{__html: `
         @media (max-width: 900px) {
           .desktop-sidebar {
@@ -668,9 +796,26 @@ export default function Home() {
               {(dashboardMessages.length > 0 || loading) && (
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', padding: '4px 0' }}>
                   {dashboardMessages.map((m, i) => (
-                    <div key={i}>{m.type === 'user' ? <div style={{ background: purple, color: '#fff', padding: '8px 12px', borderRadius: '14px 14px 4px 14px', maxWidth: '80%', marginLeft: 'auto', fontSize: '12px', lineHeight: '1.4' }}>{m.text}</div> : <div style={{ background: 'rgba(139,92,246,0.12)', border: `1px solid ${cardBorder}`, padding: '12px', borderRadius: '12px', fontSize: '12px', lineHeight: '1.5', whiteSpace: 'pre-wrap' }}><div style={{ fontWeight: '800', color: heading, marginBottom: '4px' }}>✨ Cramnix AI</div>{m.text}<div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap', marginTop: '8px' }}><button onClick={() => speakAnswer(m.text)} style={{ background: purple, color: '#fff', border: 'none', padding: '4px 8px', borderRadius: '6px', cursor: 'pointer', fontSize: '11px' }}>🔊 Read Aloud</button><button onClick={stopSpeaking} style={{ background: 'rgba(255,255,255,0.1)', color: '#fff', border: `1px solid ${cardBorder}`, padding: '4px 8px', borderRadius: '6px', cursor: 'pointer', fontSize: '11px' }}>⏹ Stop</button><button onClick={() => handleDownloadAnswer(m.text)} style={{ background: green, color: '#fff', border: 'none', padding: '4px 8px', borderRadius: '6px', cursor: 'pointer', fontSize: '11px' }}>📥 Download</button><button onClick={handleShare} style={{ background: 'rgba(255,255,255,0.1)', color: '#fff', border: `1px solid ${cardBorder}`, padding: '4px 8px', borderRadius: '6px', cursor: 'pointer', fontSize: '11px' }}>↗ Share</button></div></div>}</div>
+                    <div key={i}>
+                      {m.type === 'user' ? (
+                        <div style={{ background: purple, color: '#fff', padding: '8px 12px', borderRadius: '14px 14px 4px 14px', maxWidth: '80%', marginLeft: 'auto', fontSize: '12px', lineHeight: '1.4' }}>
+                          {m.text}
+                        </div>
+                      ) : (
+                        <div style={{ background: 'rgba(139,92,246,0.12)', border: `1px solid ${cardBorder}`, padding: '12px', borderRadius: '12px' }}>
+                          <div style={{ fontWeight: '800', color: heading, marginBottom: '6px', fontSize: '12.5px' }}>✨ Cramnix AI</div>
+                          <FormattedAIResponse content={m.text} />
+                          <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap', marginTop: '10px' }}>
+                            <button onClick={() => speakAnswer(m.text)} style={{ background: purple, color: '#fff', border: 'none', padding: '4px 8px', borderRadius: '6px', cursor: 'pointer', fontSize: '11px' }}>🔊 Read Aloud</button>
+                            <button onClick={stopSpeaking} style={{ background: 'rgba(255,255,255,0.1)', color: '#fff', border: `1px solid ${cardBorder}`, padding: '4px 8px', borderRadius: '6px', cursor: 'pointer', fontSize: '11px' }}>⏹ Stop</button>
+                            <button onClick={() => handleDownloadAnswer(m.text)} style={{ background: green, color: '#fff', border: 'none', padding: '4px 8px', borderRadius: '6px', cursor: 'pointer', fontSize: '11px' }}>📥 Download</button>
+                            <button onClick={handleShare} style={{ background: 'rgba(255,255,255,0.1)', color: '#fff', border: `1px solid ${cardBorder}`, padding: '4px 8px', borderRadius: '6px', cursor: 'pointer', fontSize: '11px' }}>↗ Share</button>
+                          </div>
+                        </div>
+                      )}
+                    </div>
                   ))}
-                  {loading && <div style={{ fontSize: '12px', color: subText }}>✨ Cramnix AI is thinking...</div>}
+                  {loading && <div style={{ fontSize: '12px', color: subText }}>⏳ Cramnix AI is thinking...</div>}
                   <div ref={chatEndRef} />
                 </div>
               )}
@@ -689,14 +834,22 @@ export default function Home() {
                   <div><label style={{ fontSize: '10px', fontWeight: '700', color: heading }}>3. Level?</label><select value={studyLevel} onChange={(e) => setStudyLevel(e.target.value)} style={{ ...inputStyle, marginTop: '2px', padding: '6px' }}><option>Easy</option><option>Medium</option><option>Hard</option></select></div>
                   <div><label style={{ fontSize: '10px', fontWeight: '700', color: heading }}>4. Daily Time?</label><select value={studyHours} onChange={(e) => setStudyHours(e.target.value)} style={{ ...inputStyle, marginTop: '2px', padding: '6px' }}><option>1 Hour</option><option>2 Hours</option><option>3 Hours</option><option>5 Hours</option></select></div>
                 </div>
-                <button onClick={handleGenerateStudyPlan} style={{ ...primaryBtn, width: '100%', marginTop: '8px', padding: '8px' }}>{loading ? 'Creating...' : '🚀 Generate Study Plan'}</button>
+                <button onClick={handleGenerateStudyPlan} disabled={loading} style={{ ...primaryBtn, width: '100%', marginTop: '8px', padding: '8px' }}>{loading ? '⏳ Cramnix AI is thinking...' : '🚀 Generate Study Plan'}</button>
               </div>
               {(studentMessages.length > 0 || loading) && (
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
                   {studentMessages.map((m, i) => (
-                    <div key={i}>{m.type === 'user' ? <div style={{ background: purple, color: '#fff', padding: '8px 12px', borderRadius: '14px 14px 4px 14px', maxWidth: '80%', marginLeft: 'auto', fontSize: '12px' }}>{m.text}</div> : <div style={{ background: 'rgba(139,92,246,0.12)', border: `1px solid ${cardBorder}`, padding: '12px', borderRadius: '12px', fontSize: '12px', lineHeight: '1.5', whiteSpace: 'pre-wrap' }}>{m.text}</div>}</div>
+                    <div key={i}>
+                      {m.type === 'user' ? (
+                        <div style={{ background: purple, color: '#fff', padding: '8px 12px', borderRadius: '14px 14px 4px 14px', maxWidth: '80%', marginLeft: 'auto', fontSize: '12px' }}>{m.text}</div>
+                      ) : (
+                        <div style={{ background: 'rgba(139,92,246,0.12)', border: `1px solid ${cardBorder}`, padding: '12px', borderRadius: '12px' }}>
+                          <FormattedAIResponse content={m.text} />
+                        </div>
+                      )}
+                    </div>
                   ))}
-                  {loading && <div style={{ fontSize: '12px', color: subText }}>✨ Cramnix AI is thinking...</div>}
+                  {loading && <div style={{ fontSize: '12px', color: subText }}>⏳ Cramnix AI is thinking...</div>}
                 </div>
               )}
             </div>
@@ -705,15 +858,23 @@ export default function Home() {
             <div style={{ flex: 1, display: 'flex', flexDirection: 'column', justifyContent: 'center', alignItems: 'center', textAlign: 'center', padding: '8px' }}>
               <div style={{ fontSize: '32px' }}>📄</div>
               <h2 style={{ fontSize: '18px', fontWeight: '900', color: heading, margin: '4px 0 2px 0' }}>{studentTab === 'notes' ? 'Notes Generator' : studentTab === 'quiz' ? 'Quiz Generator' : 'Flashcards Generator'}</h2>
-              <p style={{ color: subText, fontSize: '11px', margin: 0 }}>Enter a topic below, I will create it in English.</p>
+              <p style={{ color: subText, fontSize: '11px', margin: 0 }}>Enter a topic below, I will create it in {selectedLanguage}.</p>
             </div>
           )}
           {activeNav === 'student' && studentTab !== 'plan' && (studentMessages.length > 0 || loading) && (
             <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', padding: '4px 0' }}>
               {studentMessages.map((m, i) => (
-                <div key={i}>{m.type === 'user' ? <div style={{ background: purple, color: '#fff', padding: '8px 12px', borderRadius: '14px 14px 4px 14px', maxWidth: '80%', marginLeft: 'auto', fontSize: '12px' }}>{m.text}</div> : <div style={{ background: 'rgba(139,92,246,0.12)', border: `1px solid ${cardBorder}`, padding: '12px', borderRadius: '12px', fontSize: '12px', lineHeight: '1.5', whiteSpace: 'pre-wrap' }}>{m.text}</div>}</div>
+                <div key={i}>
+                  {m.type === 'user' ? (
+                    <div style={{ background: purple, color: '#fff', padding: '8px 12px', borderRadius: '14px 14px 4px 14px', maxWidth: '80%', marginLeft: 'auto', fontSize: '12px' }}>{m.text}</div>
+                  ) : (
+                    <div style={{ background: 'rgba(139,92,246,0.12)', border: `1px solid ${cardBorder}`, padding: '12px', borderRadius: '12px' }}>
+                      <FormattedAIResponse content={m.text} />
+                    </div>
+                  )}
+                </div>
               ))}
-              {loading && <div style={{ fontSize: '12px', color: subText }}>✨ Cramnix AI is thinking...</div>}
+              {loading && <div style={{ fontSize: '12px', color: subText }}>⏳ Cramnix AI is thinking...</div>}
             </div>
           )}
 
@@ -745,14 +906,51 @@ export default function Home() {
           {activeNav === 'chatpdf' && (pdfMessages.length > 0 || loading) && (
             <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', padding: '4px 0' }}>
               {pdfMessages.map((m, i) => (
-                <div key={i}>{m.type === 'user' ? <div style={{ background: purple, color: '#fff', padding: '8px 12px', borderRadius: '14px 14px 4px 14px', maxWidth: '80%', marginLeft: 'auto', fontSize: '12px' }}>{m.text}</div> : <div style={{ background: 'rgba(139,92,246,0.12)', border: `1px solid ${cardBorder}`, padding: '12px', borderRadius: '12px', fontSize: '12px', lineHeight: '1.5', whiteSpace: 'pre-wrap' }}><b>✨ Cramnix AI • PDF Chat</b><br /><br />{m.text}</div>}</div>
+                <div key={i}>
+                  {m.type === 'user' ? (
+                    <div style={{ background: purple, color: '#fff', padding: '8px 12px', borderRadius: '14px 14px 4px 14px', maxWidth: '80%', marginLeft: 'auto', fontSize: '12px' }}>{m.text}</div>
+                  ) : (
+                    <div style={{ background: 'rgba(139,92,246,0.12)', border: `1px solid ${cardBorder}`, padding: '12px', borderRadius: '12px' }}>
+                      <div style={{ fontWeight: '800', color: heading, marginBottom: '6px', fontSize: '12.5px' }}>✨ Cramnix AI • PDF Chat</div>
+                      <FormattedAIResponse content={m.text} />
+                    </div>
+                  )}
+                </div>
               ))}
-              {loading && <div style={{ fontSize: '12px', color: subText }}>✨ Cramnix AI is thinking...</div>}
+              {loading && <div style={{ fontSize: '12px', color: subText }}>⏳ Cramnix AI is thinking...</div>}
             </div>
           )}
 
-          {activeNav === 'quizzes' && (<div style={{ ...glass }}><h3 style={{ margin: '0 0 6px 0', color: heading, fontSize: '14px' }}>🧠 Quizzes - {quizTopic || 'No Topic'}</h3><input value={quizTopic} onChange={(e) => setQuizTopic(e.target.value)} placeholder="Enter topic..." style={inputStyle} /><button onClick={() => generateRealQuiz(quizTopic)} style={{ ...primaryBtn, marginTop: '6px', width: '100%' }}>{quizLoading ? 'Generating...' : '⚡ Generate 5 MCQs'}</button>{quizQuestions.length === 0 ? <p style={{ fontSize: '11px', color: subText, marginTop: '8px' }}>No quiz yet.</p> : <div style={{ marginTop: '8px', fontSize: '11px', whiteSpace: 'pre-wrap' }}>{quizQuestions[0].q}</div>}</div>)}
-          {activeNav === 'flashcards' && (<div style={{ ...glass }}><h3 style={{ margin: '0 0 6px 0', color: heading, fontSize: '14px' }}>📄 Flashcards - {flashTopic || 'No Topic'}</h3><input value={flashTopic} onChange={(e) => setFlashTopic(e.target.value)} placeholder="Enter topic..." style={inputStyle} /><button onClick={() => generateRealFlashcards(flashTopic)} style={{ ...primaryBtn, marginTop: '6px', width: '100%' }}>{flashLoading ? 'Generating...' : '⚡ Generate Flashcards'}</button><p style={{ fontSize: '11px', color: subText, marginTop: '8px' }}>{flashcards.length === 0 ? 'No flashcards yet.' : flashcards[0].q}</p></div>)}
+          {activeNav === 'quizzes' && (
+            <div style={{ ...glass }}>
+              <h3 style={{ margin: '0 0 6px 0', color: heading, fontSize: '14px' }}>🧠 Quizzes - {quizTopic || 'No Topic'}</h3>
+              <input value={quizTopic} onChange={(e) => setQuizTopic(e.target.value)} placeholder="Enter topic..." style={inputStyle} />
+              <button onClick={() => generateRealQuiz(quizTopic)} disabled={quizLoading} style={{ ...primaryBtn, marginTop: '6px', width: '100%' }}>{quizLoading ? '⏳ Cramnix AI is thinking...' : '⚡ Generate 5 MCQs'}</button>
+              {quizQuestions.length === 0 ? (
+                <p style={{ fontSize: '11px', color: subText, marginTop: '8px' }}>No quiz yet.</p>
+              ) : (
+                <div style={{ marginTop: '10px' }}>
+                  <FormattedAIResponse content={quizQuestions[0].q} />
+                </div>
+              )}
+            </div>
+          )}
+
+          {activeNav === 'flashcards' && (
+            <div style={{ ...glass }}>
+              <h3 style={{ margin: '0 0 6px 0', color: heading, fontSize: '14px' }}>📄 Flashcards - {flashTopic || 'No Topic'}</h3>
+              <input value={flashTopic} onChange={(e) => setFlashTopic(e.target.value)} placeholder="Enter topic..." style={inputStyle} />
+              <button onClick={() => generateRealFlashcards(flashTopic)} disabled={flashLoading} style={{ ...primaryBtn, marginTop: '6px', width: '100%' }}>{flashLoading ? '⏳ Cramnix AI is thinking...' : '⚡ Generate Flashcards'}</button>
+              {flashcards.length === 0 ? (
+                <p style={{ fontSize: '11px', color: subText, marginTop: '8px' }}>No flashcards yet.</p>
+              ) : (
+                <div style={{ marginTop: '10px' }}>
+                  <FormattedAIResponse content={flashcards[0].q} />
+                </div>
+              )}
+            </div>
+          )}
+
           {activeNav === 'goals' && (<div style={{ ...glass }}><h3 style={{ margin: '0 0 6px 0', color: heading, fontSize: '14px' }}>🎯 Goals</h3><div style={{ display: 'flex', gap: '6px' }}><input value={newGoal} onChange={(e) => setNewGoal(e.target.value)} placeholder="Add a new goal..." style={{ ...inputStyle, flex: 1, marginTop: 0 }} /><button onClick={() => { if (newGoal.trim()) { setGoals([...goals, { text: newGoal, done: false }]); setNewGoal(''); } }} style={primaryBtn}>Add</button></div>{goals.map((g, i) => <div key={i} onClick={() => setGoals(goals.map((x, xi) => xi === i ? { ...x, done: !x.done } : x))} style={{ display: 'flex', gap: '6px', alignItems: 'center', marginTop: '6px', fontSize: '11px', cursor: 'pointer', textDecoration: g.done ? 'line-through' : 'none' }}><span>{g.done ? '✅' : '⬜'}</span> {g.text}</div>)}</div>)}
 
           {activeNav === 'professional' && (
@@ -767,7 +965,7 @@ export default function Home() {
                   <h3 style={{ margin: '0 0 3px 0', color: heading, fontSize: '13px' }}>📝 Meeting Notes Extractor</h3>
                   <p style={{ fontSize: '10px', color: subText, margin: '0 0 6px 0' }}>Paste transcript below.</p>
                   <textarea rows="3" value={meetingPrompt} onChange={(e) => setMeetingPrompt(e.target.value)} placeholder="Paste notes..." style={inputStyle} />
-                  <button onClick={(e) => handleGenerate(e, `Extract professional meeting summary and action items from these notes: ${meetingPrompt}`, null, false)} style={{ ...primaryBtn, width: '100%', marginTop: '8px' }}>{loading ? 'Extracting...' : '⚡ Extract Summary'}</button>
+                  <button onClick={(e) => handleGenerate(e, `Extract professional meeting summary and action items from these notes: ${meetingPrompt}`, null, false)} disabled={loading} style={{ ...primaryBtn, width: '100%', marginTop: '8px' }}>{loading ? '⏳ Cramnix AI is thinking...' : '⚡ Extract Summary'}</button>
                 </div>
               )}
 
@@ -776,16 +974,25 @@ export default function Home() {
                   <h3 style={{ margin: '0 0 3px 0', color: heading, fontSize: '13px' }}>✉️ Email Generator</h3>
                   <p style={{ fontSize: '10px', color: subText, margin: '0 0 6px 0' }}>What is this email about?</p>
                   <input value={emailPrompt} onChange={(e) => setEmailPrompt(e.target.value)} placeholder="e.g. Leave application..." style={inputStyle} />
-                  <button onClick={(e) => handleGenerate(e, `Draft a professional email for: ${emailPrompt}`, null, false)} style={{ ...primaryBtn, width: '100%', marginTop: '8px' }}>{loading ? 'Drafting...' : '✨ Draft Email'}</button>
+                  <button onClick={(e) => handleGenerate(e, `Draft a professional email for: ${emailPrompt}`, null, false)} disabled={loading} style={{ ...primaryBtn, width: '100%', marginTop: '8px' }}>{loading ? '⏳ Cramnix AI is thinking...' : '✨ Draft Email'}</button>
                 </div>
               )}
 
               {(professionalMessages.length > 0 || loading) && (
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', padding: '4px 0' }}>
                   {professionalMessages.map((m, i) => (
-                    <div key={i}>{m.type === 'user' ? <div style={{ background: purple, color: '#fff', padding: '8px 12px', borderRadius: '14px 14px 4px 14px', maxWidth: '80%', marginLeft: 'auto', fontSize: '12px' }}>{m.text}</div> : <div style={{ background: 'rgba(139,92,246,0.12)', border: `1px solid ${cardBorder}`, padding: '12px', borderRadius: '12px', fontSize: '12px', lineHeight: '1.5', whiteSpace: 'pre-wrap' }}><div style={{ fontWeight: '800', color: heading, marginBottom: '4px' }}>✨ Cramnix AI • Professional Assistant</div>{m.text}</div>}</div>
+                    <div key={i}>
+                      {m.type === 'user' ? (
+                        <div style={{ background: purple, color: '#fff', padding: '8px 12px', borderRadius: '14px 14px 4px 14px', maxWidth: '80%', marginLeft: 'auto', fontSize: '12px' }}>{m.text}</div>
+                      ) : (
+                        <div style={{ background: 'rgba(139,92,246,0.12)', border: `1px solid ${cardBorder}`, padding: '12px', borderRadius: '12px' }}>
+                          <div style={{ fontWeight: '800', color: heading, marginBottom: '6px', fontSize: '12.5px' }}>✨ Cramnix AI • Professional Assistant</div>
+                          <FormattedAIResponse content={m.text} />
+                        </div>
+                      )}
+                    </div>
                   ))}
-                  {loading && <div style={{ fontSize: '12px', color: subText }}>✨ Cramnix AI is thinking...</div>}
+                  {loading && <div style={{ fontSize: '12px', color: subText }}>⏳ Cramnix AI is thinking...</div>}
                 </div>
               )}
             </div>
@@ -840,7 +1047,7 @@ export default function Home() {
               <input value={chatPrompt} onChange={(e) => setChatPrompt(e.target.value)} placeholder={activeNav === 'library' ? 'Search in Library...' : activeNav === 'chatpdf' ? 'Ask about PDF...' : activeNav === 'student' ? 'Enter topic...' : 'Ask anything...'} style={{ flex: 1, background: 'transparent', border: 'none', outline: 'none', color: heading, fontSize: '13px' }} />
               {chatPrompt && <button type="button" onClick={() => setChatPrompt('')} style={{ background: 'none', border: 'none', color: '#FCA5A5', cursor: 'pointer', fontSize: '14px' }}>❌</button>}
               <button type="button" onClick={() => handleVoiceInput(setChatPrompt)} style={{ background: 'none', border: 'none', fontSize: '16px', cursor: 'pointer' }} title="Voice Input">🎤</button>
-              <button type="submit" disabled={loading} style={{ background: purple, border: 'none', color: '#fff', width: '32px', height: '32px', borderRadius: '50%', cursor: 'pointer', fontSize: '13px' }}>{loading ? '...' : '➤'}</button>
+              <button type="submit" disabled={loading} style={{ background: purple, border: 'none', color: '#fff', width: '32px', height: '32px', borderRadius: '50%', cursor: 'pointer', fontSize: '13px' }}>{loading ? '⏳' : '➤'}</button>
             </form>
           </div>
         )}
@@ -899,7 +1106,7 @@ export default function Home() {
         <div>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}><b style={{ color: heading, fontSize: '12px' }}>✨ Quiz Engine</b><span style={{ fontSize: '10px', background: cardBg, padding: '2px 6px', borderRadius: '999px', color: subText }}>{quizQuestions.length > 0 ? 'Ready' : 'None'}</span></div>
           <input value={quizTopic} onChange={(e) => setQuizTopic(e.target.value)} placeholder="Enter topic..." style={{ ...inputStyle, marginTop: '6px' }} />
-          <button onClick={() => generateRealQuiz(quizTopic)} style={{ ...primaryBtn, width: '100%', marginTop: '6px', fontSize: '12px' }}>{quizLoading ? 'Generating...' : '⚡ Generate Quiz'}</button>
+          <button onClick={() => generateRealQuiz(quizTopic)} disabled={quizLoading} style={{ ...primaryBtn, width: '100%', marginTop: '6px', fontSize: '12px' }}>{quizLoading ? '⏳ Thinking...' : '⚡ Generate Quiz'}</button>
           <div style={{ marginTop: '8px', fontSize: '11px', fontWeight: '700', color: heading }}>🎯 Log Quiz Score</div>
           <div style={{ display: 'flex', gap: '6px', marginTop: '4px' }}>
             <input placeholder="Got - 8" id="gotScore" style={{ ...inputStyle, marginTop: 0 }} />
@@ -910,7 +1117,7 @@ export default function Home() {
         <div>
           <b style={{ color: heading, fontSize: '12px' }}>📄 Flashcards</b>
           <input value={flashTopic} onChange={(e) => setFlashTopic(e.target.value)} placeholder="Enter topic..." style={{ ...inputStyle, marginTop: '6px' }} />
-          <button onClick={() => generateRealFlashcards(flashTopic)} style={{ ...primaryBtn, width: '100%', marginTop: '6px', fontSize: '12px' }}>{flashLoading ? 'Generating...' : '✨ Generate Flashcards'}</button>
+          <button onClick={() => generateRealFlashcards(flashTopic)} disabled={flashLoading} style={{ ...primaryBtn, width: '100%', marginTop: '6px', fontSize: '12px' }}>{flashLoading ? '⏳ Thinking...' : '✨ Generate Flashcards'}</button>
         </div>
         <div>
           <b style={{ color: heading, fontSize: '12px' }}>🎯 Goal Planning</b>

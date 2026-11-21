@@ -42,25 +42,8 @@ def _is_daily_limit_exhausted(msg: str) -> bool:
     return (
         "generate_content_free_tier_requests" in lower
         or "per day" in lower
+        or "requests per day" in lower
         or "daily" in lower
-        or ("quota exceeded" in lower and "limit: 20" in lower)
-    )
-
-
-def _is_retryable_error(msg: str) -> bool:
-    lower = msg.lower()
-    return (
-        "503" in lower
-        or "unavailable" in lower
-        or "high demand" in lower
-        or "overloaded" in lower
-        or "temporarily" in lower
-        or "timeout" in lower
-        or "timed out" in lower
-        or "connection" in lower
-        or "reset" in lower
-        or "500" in lower
-        or "internal" in lower
     )
 
 
@@ -80,9 +63,9 @@ async def generate_ai_content(data: PromptRequest):
             system_instruction=data.system_instruction
         )
 
-    # Patient retry loop (~3-4 minutes) so temporary load or spikes still return an answer
-    max_retries = 24
-    delay = 6
+    # ~3-5 minutes tak patient retry taaki answer mil sake
+    max_retries = 30
+    delay = 8
 
     for attempt in range(max_retries):
         try:
@@ -95,7 +78,7 @@ async def generate_ai_content(data: PromptRequest):
             if not text:
                 if attempt < max_retries - 1:
                     await asyncio.sleep(delay)
-                    delay = min(delay + 4, 15)
+                    delay = min(delay + 2, 12)
                     continue
                 raise HTTPException(
                     status_code=502,
@@ -108,7 +91,11 @@ async def generate_ai_content(data: PromptRequest):
         except Exception as e:
             error_message = str(e)
 
-            if "401" in error_message or "UNAUTHENTICATED" in error_message or "API_KEY_INVALID" in error_message:
+            if (
+                "401" in error_message
+                or "UNAUTHENTICATED" in error_message
+                or "API_KEY_INVALID" in error_message
+            ):
                 raise HTTPException(
                     status_code=401,
                     detail="Your Gemini API key is invalid or unauthorized. Please check or enter your own Gemini API key in Settings.",
@@ -122,21 +109,16 @@ async def generate_ai_content(data: PromptRequest):
                     )
                 if attempt < max_retries - 1:
                     await asyncio.sleep(delay)
-                    delay = min(delay + 4, 15)
+                    delay = min(delay + 2, 12)
                     continue
                 raise HTTPException(
                     status_code=429,
                     detail=DAILY_LIMIT_MESSAGE,
                 )
 
-            if _is_retryable_error(error_message) and attempt < max_retries - 1:
-                await asyncio.sleep(delay)
-                delay = min(delay + 4, 15)
-                continue
-
             if attempt < max_retries - 1:
                 await asyncio.sleep(delay)
-                delay = min(delay + 4, 15)
+                delay = min(delay + 2, 12)
                 continue
 
             raise HTTPException(

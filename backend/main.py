@@ -72,14 +72,35 @@ async def generate_ai_content(data: PromptRequest):
     if not prompt:
         raise HTTPException(status_code=400, detail="Prompt cannot be empty.")
 
-    try:
-        text = await asyncio.to_thread(
-            _call_gemini, api_key, prompt, data.system_instruction
-        )
-        return {"response": text}
-    except HTTPException:
-        raise
-    except Exception as e:
-        err_msg = f"{type(e).__name__}: {str(e)}"
-        print("GEMINI ERROR:", err_msg, flush=True)
-        raise HTTPException(status_code=500, detail=err_msg)
+    # Temporary high-demand (503) ke liye backoff delays (total ~30s ke andar retries)
+    retry_delays = [2, 4, 6, 8, 10]
+    last_err_msg = ""
+
+    for attempt, delay in enumerate([0] + retry_delays):
+        if delay > 0:
+            await asyncio.sleep(delay)
+
+        try:
+            text = await asyncio.to_thread(
+                _call_gemini, api_key, prompt, data.system_instruction
+            )
+            return {"response": text}
+
+        except Exception as e:
+            err_msg = f"{type(e).__name__}: {str(e)}"
+            last_err_msg = err_msg
+            print(f"GEMINI ERROR (attempt {attempt + 1}):", err_msg, flush=True)
+
+            # Daily/rate quota exceed hone par turant 429 bhejo
+            if "429" in err_msg or "RESOURCE_EXHAUSTED" in err_msg:
+                raise HTTPException(status_code=429, detail=err_msg)
+
+            # Temporary 503 UNAVAILABLE ho toh retries baaki hain toh loop continue karo
+            is_503 = "503" in err_msg or "UNAVAILABLE" in err_msg
+            if is_503 and attempt < len(retry_delays):
+                continue
+
+            status_code = 503 if is_503 else 500
+            raise HTTPException(status_code=status_code, detail=err_msg)
+
+    raise HTTPException(status_code=503, detail=last_err_msg or "Service unavailable")
